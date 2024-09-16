@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.dependencies]
+thiserror = "1.0.63"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
