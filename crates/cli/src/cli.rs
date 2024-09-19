@@ -2,34 +2,34 @@ use clap::Parser;
 use clap_verbosity_flag::{Verbosity, WarnLevel};
 use std::path::{Path, PathBuf};
 
-/// Drutyka: The memory safe system optimizer
+/// preload-rs: The memory safe system optimizer
 ///
-/// Drutyka is an adaptive readahead daemon that prefetches files mapped by
+/// preload-rs is an adaptive readahead daemon that prefetches files mapped by
 /// applications from the disk to reduce application startup time.
 #[derive(Debug, Parser, Clone)]
 #[command(about, long_about, version)]
-pub(crate) struct Cli {
+pub struct Cli {
     /// Path to configuration file.
     ///
     /// Empty string means no conf file.
     #[arg(short, long, value_parser = validate_file)]
-    pub(crate) conffile: Option<PathBuf>,
+    pub conffile: Option<PathBuf>,
 
     /// File to load and save application state to.
     ///
     /// Empty string means state is stored in memory.
     #[arg(short, long)]
-    pub(crate) statefile: Option<String>,
+    pub statefile: Option<String>,
 
     /// Path to log file.
     ///
     /// Empty string means log to stderr.
     #[arg(short, long)]
-    pub(crate) logfile: Option<PathBuf>,
+    pub logfile: Option<PathBuf>,
 
     /// Run in foreground, do not daemonize.
     #[arg(short, long)]
-    pub(crate) foreground: bool,
+    pub foreground: bool,
 
     /// Nice level.
     #[arg(short, long, default_value_t = 2)]
@@ -37,7 +37,7 @@ pub(crate) struct Cli {
     _nice: i8,
 
     #[command(flatten)]
-    pub(crate) verbosity: Verbosity<WarnLevel>,
+    pub verbosity: Verbosity<WarnLevel>,
 }
 
 /// Check if the file exists.
@@ -61,5 +61,34 @@ fn validate_nice(nice: &str) -> Result<i8, String> {
         Ok(nice)
     } else {
         Err("Nice level must be between -20 and 19".to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn nice_candidates() -> impl Strategy<Value = String> {
+        prop_oneof![
+            1 => (-1000..=1000).prop_map(|i| format!("{}", i)),
+            2 => any::<String>(),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn test_validate_nice(nice in nice_candidates()) {
+            let result = validate_nice(&nice);
+            match result {
+                Ok(n) => prop_assert!((-20..=19).contains(&n)),
+                Err(err) => {
+                    let error_msg = format!("`{}` is not a valid nice number", nice);
+                    prop_assert!(
+                        err == error_msg || err == "Nice level must be between -20 and 19"
+                    );
+                },
+            }
+        }
     }
 }
