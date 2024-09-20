@@ -71,8 +71,9 @@ mod tests {
 
     fn nice_candidates() -> impl Strategy<Value = String> {
         prop_oneof![
+            2 => (-50..50).prop_map(|i| format!("{}", i)),
             1 => (-1000..=1000).prop_map(|i| format!("{}", i)),
-            2 => any::<String>(),
+            1 => ".*",
         ]
     }
 
