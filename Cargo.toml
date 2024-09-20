@@ -12,6 +12,7 @@ flume = "0.11.0"
 lto = true
 codegen-units = 1
 strip = true
+opt-level = "s"
 
 [profile.test]
 opt-level = 3
