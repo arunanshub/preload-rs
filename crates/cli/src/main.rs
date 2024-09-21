@@ -1,6 +1,7 @@
 use clap::Parser;
 use config::Config;
 use flume::bounded;
+use kernel::state::State;
 use preload_rs::{
     cli::Cli,
     signals::{wait_for_signal, SignalEvent},
@@ -26,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     };
     debug!(?config);
 
-    let mut state = kernel::state::State::new(config);
+    let mut state = State::new(config);
 
     let (signals_tx, signals_rx) = bounded(8);
     pin! {
@@ -37,6 +38,10 @@ async fn main() -> anyhow::Result<()> {
         let state = &mut state;
 
         tokio::select! {
+            // bubble up any errors from the signal handlers and timers
+            res = &mut handler => { res? }
+
+            // handle the signal events
             event_res = signals_rx.recv_async() => {
                 let event = event_res?;
                 debug!(?event, "Received signal event");
@@ -46,12 +51,12 @@ async fn main() -> anyhow::Result<()> {
                         state.dump_info();
                     }
                     SignalEvent::ManualSaveState => {
-
+                        if let Some(path) = &cli.conffile {
+                            state.reload_config(path)?;
+                        }
                     }
                 }
             }
-            // bubble up any errors from the signal handlers
-            res = &mut handler => { res? }
         }
     }
 }
