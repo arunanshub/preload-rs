@@ -25,8 +25,11 @@ impl State {
     }
 
     pub fn dump_info(&self) {
-        // TODO: dump state info
-        info!("{:?}", self.config);
+        let span = tracing::info_span!("state dump");
+        let _enter = span.enter();
+        info!(?self.config, "current config");
+        info!(?self.time);
+        info!(?self.dirty);
     }
 
     pub fn reload_config(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
@@ -50,7 +53,6 @@ impl State {
         }
 
         self.time += self.config.model.cycle as u64 / 2;
-        // TODO: g_timeout_add_seconds(conf->model.cycle / 2, preload_state_tick2, data);
     }
 
     pub fn spy_scan(&self) {}
