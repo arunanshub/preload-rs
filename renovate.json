@@ -1,6 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":preserveSemverRanges",
+    ":maintainLockFilesWeekly",
+    ":semanticCommitTypeAll(build)",
+    ":label(dependencies)",
+    ":enablePreCommit",
+    ":automergeMinor",
+    ":rebaseStalePrs"
   ]
 }
