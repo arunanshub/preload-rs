@@ -37,9 +37,6 @@ jobs:
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.5
 
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-
       - name: Install cargo-llvm-cov and nextest
         uses: taiki-e/install-action@v2
         with:
@@ -85,9 +82,6 @@ jobs:
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.5
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
 
       - name: Nightly build
         run: cargo build -p preload-rs --all-features --release
