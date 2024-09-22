@@ -1,19 +1,18 @@
 use crate::Error;
 use config::Config;
-use std::{path::Path, sync::Arc, time::Duration};
-use tokio::{sync::RwLock, time};
+use std::path::Path;
 use tracing::debug;
 
 #[derive(Debug)]
-struct StateInner {
+pub(crate) struct StateInner {
     /// Configuration is created by the user and (probably) loaded from a file.
-    pub config: Config,
+    pub(crate) config: Config,
 
-    dirty: bool,
+    pub(crate) dirty: bool,
 
-    model_dirty: bool,
+    pub(crate) model_dirty: bool,
 
-    time: u64,
+    pub(crate) time: u64,
 }
 
 impl StateInner {
@@ -38,7 +37,7 @@ impl StateInner {
         Ok(())
     }
 
-    fn scan_and_predict(&mut self) -> Result<(), Error> {
+    pub fn scan_and_predict(&mut self) -> Result<(), Error> {
         let span = tracing::debug_span!("state_scan");
         let _enter = span.enter();
 
@@ -56,7 +55,7 @@ impl StateInner {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), Error> {
+    pub fn update(&mut self) -> Result<(), Error> {
         let span = tracing::debug_span!("state_update");
         let _enter = span.enter();
 
@@ -68,46 +67,5 @@ impl StateInner {
 
         self.time += (self.config.model.cycle as u64 + 1) / 2;
         Ok(())
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct State(Arc<RwLock<StateInner>>);
-
-impl State {
-    pub fn new(config: Config) -> Self {
-        Self(Arc::new(RwLock::new(StateInner::new(config))))
-    }
-
-    pub async fn dump_info(&self) {
-        self.0.read().await.dump_info();
-    }
-
-    pub async fn reload_config(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        self.0.write().await.reload_config(path)
-    }
-
-    pub async fn update(&self) -> Result<(), Error> {
-        self.0.write().await.update()
-    }
-
-    pub async fn scan_and_predict(&self) -> Result<(), Error> {
-        self.0.write().await.scan_and_predict()
-    }
-
-    pub async fn start(self) -> Result<(), Error> {
-        let state = self.0;
-        loop {
-            state.write().await.scan_and_predict()?;
-            time::sleep(Duration::from_millis(
-                state.read().await.config.model.cycle as u64 / 2,
-            ))
-            .await;
-            state.write().await.update()?;
-            time::sleep(Duration::from_millis(
-                (state.read().await.config.model.cycle + 1) as u64 / 2,
-            ))
-            .await;
-        }
     }
 }
