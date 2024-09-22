@@ -6,7 +6,9 @@ use preload_rs::{
     cli::Cli,
     signals::{wait_for_signal, SignalEvent},
 };
-use tracing::debug;
+use std::time::Duration;
+use tokio::time;
+use tracing::{debug, error};
 use tracing_log::AsTrace;
 
 #[tokio::main]
@@ -34,7 +36,22 @@ async fn main() -> anyhow::Result<()> {
     // initialize the state
     let state = State::new(config);
     let state_clone = state.clone();
-    let mut state_handle = tokio::spawn(async move { state_clone.start().await });
+    let mut state_handle = tokio::spawn(async move {
+        loop {
+            if let Err(err) = state_clone.scan_and_predict().await {
+                error!("scan and predict failed with error: {}", err);
+                return Err(err);
+            }
+            // TODO: get cycle value from config
+            time::sleep(Duration::from_millis(200)).await;
+            if let Err(err) = state_clone.update().await {
+                error!("update failed with error: {}", err);
+                return Err(err);
+            }
+            // TODO: get cycle value from config
+            time::sleep(Duration::from_millis(200)).await;
+        }
+    });
 
     loop {
         tokio::select! {
@@ -53,7 +70,6 @@ async fn main() -> anyhow::Result<()> {
                     SignalEvent::DumpStateInfo => {
                         debug!("dumping state info");
                         state.dump_info().await;
-                        debug!("dumped state info");
                     }
                     SignalEvent::ManualSaveState => {
                         debug!("manual save state");

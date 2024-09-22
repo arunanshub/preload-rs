@@ -1,8 +1,7 @@
 use crate::Error;
 use config::Config;
-use std::{path::Path, sync::Arc, time::Duration};
+use std::{path::Path, sync::Arc};
 use tokio::sync::RwLock;
-use tokio::time;
 use tracing::debug;
 
 #[derive(Debug)]
@@ -30,9 +29,7 @@ impl StateInner {
     pub fn dump_info(&self) {
         let span = tracing::info_span!("state dump");
         let _enter = span.enter();
-        debug!(?self.config, "current config");
-        debug!(?self.time);
-        debug!(?self.dirty);
+        debug!(?self.config, ?self.time, ?self.dirty, "current config");
     }
 
     pub fn reload_config(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
@@ -72,20 +69,6 @@ impl StateInner {
         self.time += (self.config.model.cycle as u64 + 1) / 2;
         Ok(())
     }
-
-    pub async fn start(&mut self) -> Result<(), Error> {
-        let mut i1 = time::interval(Duration::from_millis(self.config.model.cycle as u64 / 2));
-        let mut i2 = time::interval(Duration::from_millis(
-            (self.config.model.cycle + 1) as u64 / 2,
-        ));
-
-        loop {
-            self.scan_and_predict()?;
-            i1.tick().await;
-            self.update()?;
-            i2.tick().await;
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -104,7 +87,11 @@ impl State {
         self.0.write().await.reload_config(path)
     }
 
-    pub async fn start(&self) -> Result<(), Error> {
-        self.0.write().await.start().await
+    pub async fn update(&self) -> Result<(), Error> {
+        self.0.write().await.update()
+    }
+
+    pub async fn scan_and_predict(&self) -> Result<(), Error> {
+        self.0.write().await.scan_and_predict()
     }
 }
