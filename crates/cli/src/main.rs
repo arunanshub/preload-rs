@@ -1,7 +1,7 @@
 use clap::Parser;
 use config::Config;
 use flume::bounded;
-use kernel::state::State;
+use kernel::State;
 use preload_rs::{
     cli::Cli,
     signals::{wait_for_signal, SignalEvent},

@@ -330,6 +330,7 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "config",
+ "libc",
  "parking_lot",
  "proptest",
  "thiserror",

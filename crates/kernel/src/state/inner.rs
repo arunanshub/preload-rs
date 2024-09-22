@@ -1,5 +1,6 @@
 use crate::Error;
 use config::Config;
+use libc::pid_t;
 use std::{
     collections::{HashMap, VecDeque},
     mem,
@@ -26,7 +27,11 @@ pub(crate) struct StateInner {
 
     new_running_exes: VecDeque<()>,
 
-    new_exes: HashMap<PathBuf, ()>,
+    new_exes: HashMap<PathBuf, pid_t>,
+
+    exes: HashMap<PathBuf, ()>,
+
+    bad_exes: HashMap<PathBuf, ()>,
 }
 
 impl StateInner {
@@ -41,6 +46,37 @@ impl StateInner {
             running_exes: Default::default(),
             new_running_exes: Default::default(),
             new_exes: Default::default(),
+            exes: Default::default(),
+            bad_exes: Default::default(),
+        }
+    }
+
+    #[allow(unused)]
+    fn running_process_callback(&mut self, pid: pid_t, exe_path: impl Into<PathBuf>) {
+        let exe_path = exe_path.into();
+
+        if let Some(exe) = self.exes.get(&exe_path) {
+            // TODO: !exe_is_running(exe);
+            if true {
+                self.new_running_exes.push_back(());
+                self.state_changed_exes.push_back(());
+            }
+            // TODO: exe.running_timestamp = self.time;
+        } else if !self.bad_exes.contains_key(&exe_path) {
+            self.new_exes.insert(exe_path, pid);
+        }
+    }
+
+    /// Update the exe list by its running status.
+    ///
+    /// If the exe is running, it is considered to be newly running, otherwise
+    /// it is considered to have changed state.
+    fn update_exe_list(&mut self, exe: ()) {
+        // TODO: exe_is_running(exe);
+        if true {
+            self.new_running_exes.push_back(exe);
+        } else {
+            self.state_changed_exes.push_back(exe);
         }
     }
 
@@ -57,8 +93,8 @@ impl StateInner {
 
         // figure out who's not running by checking their timestamp
         let running_exes = mem::take(&mut self.running_exes);
-        for _ in running_exes {
-            // TODO: g_slist_foreach(state->running_exes, (GFunc)G_CALLBACK(already_running_exe_callback), data);
+        for exe in running_exes {
+            self.update_exe_list(exe);
         }
 
         self.running_exes = mem::take(&mut self.new_running_exes);
