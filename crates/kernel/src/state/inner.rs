@@ -1,6 +1,10 @@
 use crate::Error;
 use config::Config;
-use std::path::Path;
+use std::{
+    collections::{HashMap, VecDeque},
+    mem,
+    path::{Path, PathBuf},
+};
 use tracing::debug;
 
 #[derive(Debug)]
@@ -13,6 +17,16 @@ pub(crate) struct StateInner {
     pub(crate) model_dirty: bool,
 
     pub(crate) time: u64,
+
+    pub(crate) last_running_timestamp: u64,
+
+    state_changed_exes: VecDeque<()>,
+
+    running_exes: VecDeque<()>,
+
+    new_running_exes: VecDeque<()>,
+
+    new_exes: HashMap<PathBuf, ()>,
 }
 
 impl StateInner {
@@ -22,7 +36,32 @@ impl StateInner {
             dirty: false,
             model_dirty: false,
             time: 0,
+            last_running_timestamp: 0,
+            state_changed_exes: Default::default(),
+            running_exes: Default::default(),
+            new_running_exes: Default::default(),
+            new_exes: Default::default(),
         }
+    }
+
+    /// scan processes, see which exes started running, which are not running
+    /// anymore, and what new exes are around.
+    fn spy_scan(&mut self) {
+        self.state_changed_exes.clear();
+        self.new_running_exes.clear();
+        self.new_exes.clear();
+
+        // mark each running exe with fresh timestamp
+        // TODO: proc_foreach((GHFunc)G_CALLBACK(running_process_callback), data);
+        self.last_running_timestamp = self.time;
+
+        // figure out who's not running by checking their timestamp
+        let running_exes = mem::take(&mut self.running_exes);
+        for _ in running_exes {
+            // TODO: g_slist_foreach(state->running_exes, (GFunc)G_CALLBACK(already_running_exe_callback), data);
+        }
+
+        self.running_exes = mem::take(&mut self.new_running_exes);
     }
 
     pub fn dump_info(&self) {
@@ -43,7 +82,7 @@ impl StateInner {
 
         debug!("scanning and predicting");
         if self.config.system.doscan {
-            // TODO: preload_spy_scan(data);
+            self.spy_scan();
             self.model_dirty = true;
             self.dirty = true;
         }
