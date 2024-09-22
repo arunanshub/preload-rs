@@ -71,7 +71,7 @@ jobs:
       #     file: ./coverage.lcov
 
   nightly:
-    if: github.event.schedule == '0 0 * * *'
+    if: github.event.schedule == '0 0 * * *' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
 
     steps:
