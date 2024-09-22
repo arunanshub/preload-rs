@@ -1,7 +1,7 @@
 use crate::Error;
 use config::Config;
-use std::{path::Path, sync::Arc};
-use tokio::sync::RwLock;
+use std::{path::Path, sync::Arc, time::Duration};
+use tokio::{sync::RwLock, time};
 use tracing::debug;
 
 #[derive(Debug)]
@@ -93,5 +93,21 @@ impl State {
 
     pub async fn scan_and_predict(&self) -> Result<(), Error> {
         self.0.write().await.scan_and_predict()
+    }
+
+    pub async fn start(self) -> Result<(), Error> {
+        let state = self.0;
+        loop {
+            state.write().await.scan_and_predict()?;
+            time::sleep(Duration::from_millis(
+                state.read().await.config.model.cycle as u64 / 2,
+            ))
+            .await;
+            state.write().await.update()?;
+            time::sleep(Duration::from_millis(
+                (state.read().await.config.model.cycle + 1) as u64 / 2,
+            ))
+            .await;
+        }
     }
 }

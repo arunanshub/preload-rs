@@ -6,8 +6,6 @@ use preload_rs::{
     cli::Cli,
     signals::{wait_for_signal, SignalEvent},
 };
-use std::time::Duration;
-use tokio::time;
 use tracing::{debug, error};
 use tracing_log::AsTrace;
 
@@ -36,22 +34,7 @@ async fn main() -> anyhow::Result<()> {
     // initialize the state
     let state = State::new(config);
     let state_clone = state.clone();
-    let mut state_handle = tokio::spawn(async move {
-        loop {
-            if let Err(err) = state_clone.scan_and_predict().await {
-                error!("scan and predict failed with error: {}", err);
-                return Err(err);
-            }
-            // TODO: get cycle value from config
-            time::sleep(Duration::from_millis(200)).await;
-            if let Err(err) = state_clone.update().await {
-                error!("update failed with error: {}", err);
-                return Err(err);
-            }
-            // TODO: get cycle value from config
-            time::sleep(Duration::from_millis(200)).await;
-        }
-    });
+    let mut state_handle = tokio::spawn(async move { state_clone.start().await });
 
     loop {
         tokio::select! {
@@ -59,7 +42,13 @@ async fn main() -> anyhow::Result<()> {
             res = &mut signal_handle => { res?? }
 
             // bubble up any errors from the state
-            res = &mut state_handle => { res?? }
+            res = &mut state_handle => {
+                let res = res?;
+                if let Err(err) = &res {
+                    error!("error happened in state: {}", err);
+                }
+                res?
+            }
 
             // handle the signal events
             event_res = signals_rx.recv_async() => {
