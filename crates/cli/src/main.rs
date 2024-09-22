@@ -6,7 +6,6 @@ use preload_rs::{
     cli::Cli,
     signals::{wait_for_signal, SignalEvent},
 };
-use tokio::pin;
 use tracing::debug;
 use tracing_log::AsTrace;
 
@@ -21,25 +20,29 @@ async fn main() -> anyhow::Result<()> {
         .with_line_number(true)
         .init();
 
+    // load config
     let config = match &cli.conffile {
         Some(path) => Config::load(path)?,
         _ => Config::new(),
     };
     debug!(?config);
 
-    let mut state = State::new(config);
-
+    // install signal handlers
     let (signals_tx, signals_rx) = bounded(8);
-    pin! {
-       let handler = wait_for_signal(signals_tx);
-    }
+    let mut signal_handle = tokio::spawn(async move { wait_for_signal(signals_tx).await });
+
+    // initialize the state
+    let state = State::new(config);
+    let state_clone = state.clone();
+    let mut state_handle = tokio::spawn(async move { state_clone.start().await });
 
     loop {
-        let state = &mut state;
-
         tokio::select! {
             // bubble up any errors from the signal handlers and timers
-            res = &mut handler => { res? }
+            res = &mut signal_handle => { res?? }
+
+            // bubble up any errors from the state
+            res = &mut state_handle => { res?? }
 
             // handle the signal events
             event_res = signals_rx.recv_async() => {
@@ -48,11 +51,14 @@ async fn main() -> anyhow::Result<()> {
 
                 match event {
                     SignalEvent::DumpStateInfo => {
-                        state.dump_info();
+                        debug!("dumping state info");
+                        state.dump_info().await;
+                        debug!("dumped state info");
                     }
                     SignalEvent::ManualSaveState => {
+                        debug!("manual save state");
                         if let Some(path) = &cli.conffile {
-                            state.reload_config(path)?;
+                            state.reload_config(path).await?;
                         }
                     }
                 }

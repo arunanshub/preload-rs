@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 config = { version = "0.1.0", path = "../config" }
+parking_lot = { version = "0.12.3", features = ["send_guard"] }
 thiserror.workspace = true
+tokio = { version = "1.40.0", features = ["sync", "time"] }
 tracing.workspace = true
 
 [dev-dependencies]
