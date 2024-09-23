@@ -35,12 +35,12 @@ impl State {
         let state = self.0;
         loop {
             state.write().await.scan_and_predict()?;
-            time::sleep(Duration::from_millis(
+            time::sleep(Duration::from_secs(
                 state.read().await.config.model.cycle as u64 / 2,
             ))
             .await;
             state.write().await.update()?;
-            time::sleep(Duration::from_millis(
+            time::sleep(Duration::from_secs(
                 (state.read().await.config.model.cycle + 1) as u64 / 2,
             ))
             .await;
