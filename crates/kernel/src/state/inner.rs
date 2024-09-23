@@ -6,7 +6,8 @@ use std::{
     mem,
     path::{Path, PathBuf},
 };
-use tracing::debug;
+use sysinfo::{ProcessRefreshKind, RefreshKind, UpdateKind};
+use tracing::{debug, warn};
 
 #[derive(Debug)]
 pub(crate) struct StateInner {
@@ -51,11 +52,10 @@ impl StateInner {
         }
     }
 
-    #[allow(unused)]
     fn running_process_callback(&mut self, pid: pid_t, exe_path: impl Into<PathBuf>) {
         let exe_path = exe_path.into();
 
-        if let Some(exe) = self.exes.get(&exe_path) {
+        if let Some(_exe) = self.exes.get(&exe_path) {
             // TODO: !exe_is_running(exe);
             if true {
                 self.new_running_exes.push_back(());
@@ -87,8 +87,17 @@ impl StateInner {
         self.new_running_exes.clear();
         self.new_exes.clear();
 
+        // HACK: self.running_process_callback is used as a closure that has a
+        // mutable reference to self. Now, config is also a part of self, and by
+        // rust's rules we cannot have an immutable reference to self while we
+        // have a mutable reference to self.
+        let exeprefix = std::mem::take(&mut self.config.system.exeprefix);
+        proc_foreach(
+            |pid, exe_path| self.running_process_callback(pid as i32, exe_path),
+            &exeprefix,
+        );
+        self.config.system.exeprefix = exeprefix;
         // mark each running exe with fresh timestamp
-        // TODO: proc_foreach((GHFunc)G_CALLBACK(running_process_callback), data);
         self.last_running_timestamp = self.time;
 
         // figure out who's not running by checking their timestamp
@@ -142,5 +151,105 @@ impl StateInner {
 
         self.time += (self.config.model.cycle as u64 + 1) / 2;
         Ok(())
+    }
+}
+
+// TODO: make this a method of StateInner
+fn proc_foreach<T, U>(mut callback: T, exeprefixes: &[U])
+where
+    T: FnMut(u32, &Path),
+    U: AsRef<str>,
+{
+    let refreshes = RefreshKind::new().with_processes(
+        ProcessRefreshKind::new()
+            .with_exe(UpdateKind::OnlyIfNotSet)
+            .with_memory(),
+    );
+    let mut system = sysinfo::System::new_with_specifics(refreshes);
+    system.refresh_specifics(refreshes);
+
+    for (pid, process) in system.processes() {
+        let pid = pid.as_u32();
+        if pid == std::process::id() {
+            continue;
+        }
+
+        let Some(exe_path) = process.exe().map(PathBuf::from) else {
+            warn!("exe path not found for pid={pid}. Am I running as root?");
+            continue;
+        };
+
+        let Some(exe_path) = sanitize_file(&exe_path) else {
+            continue;
+        };
+
+        if !accept_file(exe_path, exeprefixes) {
+            continue;
+        }
+        callback(pid, exe_path)
+    }
+}
+
+fn sanitize_file(path: &Path) -> Option<&Path> {
+    if !path.has_root() {
+        return None;
+    }
+    // convert /bin/bash.#prelink#.12345 to /bin/bash
+    // get rid of prelink and accept it
+    let new_path = path.to_str().and_then(|x| x.split(".#prelink#.").next())?;
+    // (non-prelinked) deleted files
+    if path.to_str().map_or(false, |s| s.contains("(deleted)")) {
+        return None;
+    }
+    Some(Path::new(new_path))
+}
+
+fn accept_file<T: AsRef<str>>(path: impl AsRef<Path>, exeprefixes: &[T]) -> bool {
+    let path = path.as_ref();
+
+    for exeprefix in exeprefixes {
+        let exeprefix = exeprefix.as_ref();
+        // negative path prefix is present: if any match, reject
+        // eg: path_prefix = "/usr/bin" exeprefix = "!/usr/bin"
+        // reject "/usr/bin/abc" etc.
+        if let Some((_, path_prefix)) = exeprefix.split_once("!") {
+            let path_prefix = Path::new(path_prefix);
+            // if path is a child of path_prefix, reject
+            if path.starts_with(path_prefix) {
+                return false;
+            }
+        // positive path prefix is present: if any match, accept
+        } else {
+            // eg: path_prefix = "/usr/bin" exeprefix = "/usr/bin"
+            // accept "/usr/bin/abc" etc.
+            if path.starts_with(exeprefix) {
+                return true;
+            }
+        }
+    }
+
+    // accept if no exeprefixes matched
+    true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn proc_foreach_atleast_one_process() {
+        let mut count = 0;
+        proc_foreach::<_, &str>(|_, _| count += 1, &[]);
+        assert!(count > 0);
+    }
+
+    #[test]
+    fn test_accept_file() {
+        let exeprefixes = ["/usr/bin", "/usr/sbin", "!/home/user/personal"];
+
+        assert!(accept_file("/usr/bin/ls", &exeprefixes));
+        assert!(accept_file("/home/user/foobar", &exeprefixes));
+        assert!(!accept_file("/home/user/personal/notaccept", &exeprefixes));
+        assert!(accept_file("/no/match", &exeprefixes));
     }
 }

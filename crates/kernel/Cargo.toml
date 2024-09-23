@@ -7,6 +7,8 @@ edition = "2021"
 config = { version = "0.1.0", path = "../config" }
 libc = "0.2.158"
 parking_lot = { version = "0.12.3", features = ["send_guard"] }
+procfs = "0.16.0"
+sysinfo = "0.31.4"
 thiserror.workspace = true
 tokio = { version = "1.40.0", features = ["sync", "time"] }
 tracing.workspace = true

@@ -59,7 +59,7 @@ pub struct System {
     /// The syntax for this is exactly the same as for mapprefix. The only
     /// difference is that this is used to accept or reject binary exectuable
     /// files instead of maps.
-    pub exeprefix: Vec<PathBuf>,
+    pub exeprefix: Vec<String>,
 
     /// Maximum number of processes to use to do parallel readahead. If
     /// equal to 0, no parallel processing is done and all readahead is
@@ -90,11 +90,11 @@ impl Default for System {
                 PathBuf::from("!/"),
             ],
             exeprefix: vec![
-                PathBuf::from("/opt"),
-                PathBuf::from("!/usr/sbin/"),
-                PathBuf::from("!/usr/local/sbin/"),
-                PathBuf::from("!/usr/"),
-                PathBuf::from("!/"),
+                "/opt".into(),
+                "!/usr/sbin/".into(),
+                "!/usr/local/sbin/".into(),
+                "!/usr/".into(),
+                "!/".into(),
             ],
             processes: 30,
             sortstrategy: Some(SortStrategy::Block),
