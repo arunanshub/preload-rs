@@ -2,16 +2,20 @@ use std::path::Path;
 
 /// Check if a file path is accepted based on the exeprefixes.
 ///
+/// Make sure that the exeprefixes are sorted before calling this function.
+///
 /// ```
 /// # use kernel::utils::accept_file;
-/// let exeprefixes = [
+/// let mut exeprefixes = [
 ///     "/usr/bin",
 ///     "/usr/sbin",
+///     // accept anything in `acceptedfolder` that is inside `personal` folder
+///     "/home/user/personal/acceptedfolder",
 ///     // ignore anything in personal dir
 ///     "!/home/user/personal",
-///     // accept anything in `acceptedfolder` that is inside `personal` folder
-///     "/home/user/personal/acceptedfolder"
 /// ];
+/// // Must be sorted first
+/// exeprefixes.sort();
 ///
 /// assert!(accept_file("/usr/bin/ls", &exeprefixes));
 /// assert!(accept_file("/home/user/foobar", &exeprefixes));
@@ -81,12 +85,13 @@ mod tests {
 
     #[test]
     fn test_accept_file() {
-        let exeprefixes = [
+        let mut exeprefixes = [
             "/usr/bin",
             "/usr/sbin",
-            "!/home/user/personal",
             "/home/user/personal/acceptedfolder",
+            "!/home/user/personal",
         ];
+        exeprefixes.sort();
 
         assert!(accept_file("/usr/bin/ls", &exeprefixes));
         assert!(accept_file("/home/user/foobar", &exeprefixes));
