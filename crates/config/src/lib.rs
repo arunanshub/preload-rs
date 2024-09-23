@@ -24,12 +24,12 @@ impl Config {
     /// Load the configuration file from a path.
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
         let config = std::fs::read_to_string(path)?;
-        Ok(toml::from_str(&config)?)
+        Ok(toml_edit::de::from_str(&config)?)
     }
 
     /// Save configuration to a file.
     pub fn save(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        let config = toml::to_string(self)?;
+        let config = toml_edit::ser::to_string_pretty(self)?;
         std::fs::write(path, config)?;
         Ok(())
     }
