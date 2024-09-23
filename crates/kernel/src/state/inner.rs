@@ -1,4 +1,7 @@
-use crate::Error;
+use crate::{
+    utils::{accept_file, sanitize_file},
+    Error,
+};
 use config::Config;
 use libc::pid_t;
 use std::{
@@ -190,48 +193,6 @@ where
     }
 }
 
-fn sanitize_file(path: &Path) -> Option<&Path> {
-    if !path.has_root() {
-        return None;
-    }
-    // convert /bin/bash.#prelink#.12345 to /bin/bash
-    // get rid of prelink and accept it
-    let new_path = path.to_str().and_then(|x| x.split(".#prelink#.").next())?;
-    // (non-prelinked) deleted files
-    if path.to_str().map_or(false, |s| s.contains("(deleted)")) {
-        return None;
-    }
-    Some(Path::new(new_path))
-}
-
-fn accept_file<T: AsRef<str>>(path: impl AsRef<Path>, exeprefixes: &[T]) -> bool {
-    let path = path.as_ref();
-
-    for exeprefix in exeprefixes {
-        let exeprefix = exeprefix.as_ref();
-        // negative path prefix is present: if any match, reject
-        // eg: path_prefix = "/usr/bin" exeprefix = "!/usr/bin"
-        // reject "/usr/bin/abc" etc.
-        if let Some((_, path_prefix)) = exeprefix.split_once("!") {
-            let path_prefix = Path::new(path_prefix);
-            // if path is a child of path_prefix, reject
-            if path.starts_with(path_prefix) {
-                return false;
-            }
-        // positive path prefix is present: if any match, accept
-        } else {
-            // eg: path_prefix = "/usr/bin" exeprefix = "/usr/bin"
-            // accept "/usr/bin/abc" etc.
-            if path.starts_with(exeprefix) {
-                return true;
-            }
-        }
-    }
-
-    // accept if no exeprefixes matched
-    true
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,15 +202,5 @@ mod tests {
         let mut count = 0;
         proc_foreach::<_, &str>(|_, _| count += 1, &[]);
         assert!(count > 0);
-    }
-
-    #[test]
-    fn test_accept_file() {
-        let exeprefixes = ["/usr/bin", "/usr/sbin", "!/home/user/personal"];
-
-        assert!(accept_file("/usr/bin/ls", &exeprefixes));
-        assert!(accept_file("/home/user/foobar", &exeprefixes));
-        assert!(!accept_file("/home/user/personal/notaccept", &exeprefixes));
-        assert!(accept_file("/no/match", &exeprefixes));
     }
 }
