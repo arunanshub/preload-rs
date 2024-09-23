@@ -9,7 +9,7 @@ use std::{
     mem,
     path::{Path, PathBuf},
 };
-use sysinfo::{ProcessRefreshKind, RefreshKind, UpdateKind};
+use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 use tracing::{debug, warn};
 
 #[derive(Debug)]
@@ -36,10 +36,21 @@ pub(crate) struct StateInner {
     exes: HashMap<PathBuf, ()>,
 
     bad_exes: HashMap<PathBuf, ()>,
+
+    sysinfo: System,
+
+    system_refresh_kind: RefreshKind,
 }
 
 impl StateInner {
     pub fn new(config: Config) -> Self {
+        let system_refresh_kind = RefreshKind::new().with_processes(
+            ProcessRefreshKind::new()
+                .with_exe(UpdateKind::OnlyIfNotSet)
+                .with_memory(),
+        );
+        let sysinfo = System::new_with_specifics(system_refresh_kind);
+
         Self {
             config,
             dirty: false,
@@ -52,6 +63,39 @@ impl StateInner {
             new_exes: Default::default(),
             exes: Default::default(),
             bad_exes: Default::default(),
+            sysinfo,
+            system_refresh_kind,
+        }
+    }
+
+    fn proc_foreach(&mut self) {
+        self.sysinfo.refresh_specifics(self.system_refresh_kind);
+        // NOTE: we `take` the sysinfo to avoid borrowing issues when looping.
+        // Because `running_process_callback` borrows `self` mutably, we can't
+        // borrow `self` immutably in the loop.
+        let sysinfo = std::mem::take(&mut self.sysinfo);
+        // sort exeprefixes first: see test for `accept_file` for more info.
+        self.config.system.exeprefix.sort();
+
+        for (pid, process) in sysinfo.processes() {
+            let pid = pid.as_u32();
+            if pid == std::process::id() {
+                continue;
+            }
+
+            let Some(exe_path) = process.exe() else {
+                warn!("exe path not found for pid={pid}. Am I running as root?");
+                continue;
+            };
+
+            let Some(exe_path) = sanitize_file(exe_path) else {
+                continue;
+            };
+
+            if !accept_file(exe_path, &self.config.system.exeprefix) {
+                continue;
+            }
+            self.running_process_callback(pid as i32, exe_path)
         }
     }
 
@@ -90,16 +134,7 @@ impl StateInner {
         self.new_running_exes.clear();
         self.new_exes.clear();
 
-        // HACK: self.running_process_callback is used as a closure that has a
-        // mutable reference to self. Now, config is also a part of self, and by
-        // rust's rules we cannot have an immutable reference to self while we
-        // have a mutable reference to self.
-        let exeprefix = std::mem::take(&mut self.config.system.exeprefix);
-        proc_foreach(
-            |pid, exe_path| self.running_process_callback(pid as i32, exe_path),
-            &exeprefix,
-        );
-        self.config.system.exeprefix = exeprefix;
+        self.proc_foreach();
         // mark each running exe with fresh timestamp
         self.last_running_timestamp = self.time;
 
@@ -154,53 +189,5 @@ impl StateInner {
 
         self.time += (self.config.model.cycle as u64 + 1) / 2;
         Ok(())
-    }
-}
-
-// TODO: make this a method of StateInner
-fn proc_foreach<T, U>(mut callback: T, exeprefixes: &[U])
-where
-    T: FnMut(u32, &Path),
-    U: AsRef<str>,
-{
-    let refreshes = RefreshKind::new().with_processes(
-        ProcessRefreshKind::new()
-            .with_exe(UpdateKind::OnlyIfNotSet)
-            .with_memory(),
-    );
-    let mut system = sysinfo::System::new_with_specifics(refreshes);
-    system.refresh_specifics(refreshes);
-
-    for (pid, process) in system.processes() {
-        let pid = pid.as_u32();
-        if pid == std::process::id() {
-            continue;
-        }
-
-        let Some(exe_path) = process.exe().map(PathBuf::from) else {
-            warn!("exe path not found for pid={pid}. Am I running as root?");
-            continue;
-        };
-
-        let Some(exe_path) = sanitize_file(&exe_path) else {
-            continue;
-        };
-
-        if !accept_file(exe_path, exeprefixes) {
-            continue;
-        }
-        callback(pid, exe_path)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn proc_foreach_atleast_one_process() {
-        let mut count = 0;
-        proc_foreach::<_, &str>(|_, _| count += 1, &[]);
-        assert!(count > 0);
     }
 }
