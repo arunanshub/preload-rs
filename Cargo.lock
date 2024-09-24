@@ -235,7 +235,6 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml_edit",
- "tracing",
 ]
 
 [[package]]
@@ -452,7 +451,6 @@ version = "0.1.0"
 dependencies = [
  "config",
  "libc",
- "parking_lot",
  "procfs",
  "proptest",
  "sysinfo",
