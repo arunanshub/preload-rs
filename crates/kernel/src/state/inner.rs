@@ -43,13 +43,17 @@ pub(crate) struct StateInner {
 }
 
 impl StateInner {
-    pub fn new(config: Config) -> Self {
+    pub fn new(mut config: Config) -> Self {
         let system_refresh_kind = RefreshKind::new().with_processes(
             ProcessRefreshKind::new()
                 .with_exe(UpdateKind::OnlyIfNotSet)
                 .with_memory(),
         );
         let sysinfo = System::new_with_specifics(system_refresh_kind);
+        // sort map and exeprefixes ahead of time: see `utils::accept_file` for
+        // more info
+        config.system.mapprefix.sort();
+        config.system.exeprefix.sort();
 
         Self {
             config,
@@ -74,8 +78,6 @@ impl StateInner {
         // Because `running_process_callback` borrows `self` mutably, we can't
         // borrow `self` immutably in the loop.
         let sysinfo = std::mem::take(&mut self.sysinfo);
-        // sort exeprefixes first: see test for `accept_file` for more info.
-        self.config.system.exeprefix.sort();
 
         for (pid, process) in sysinfo.processes() {
             let pid = pid.as_u32();
@@ -155,6 +157,10 @@ impl StateInner {
 
     pub fn reload_config(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         self.config = Config::load(path)?;
+        // sort map and exeprefixes ahead of time: see `utils::accept_file` for
+        // more info
+        self.config.system.mapprefix.sort();
+        self.config.system.exeprefix.sort();
         debug!(?self.config, "loaded new config");
         Ok(())
     }
