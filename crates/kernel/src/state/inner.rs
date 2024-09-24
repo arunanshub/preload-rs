@@ -25,6 +25,8 @@ pub(crate) struct StateInner {
 
     pub(crate) last_running_timestamp: u64,
 
+    last_accounting_timestamp: u64,
+
     state_changed_exes: VecDeque<()>,
 
     running_exes: VecDeque<()>,
@@ -61,6 +63,7 @@ impl StateInner {
             model_dirty: false,
             time: 0,
             last_running_timestamp: 0,
+            last_accounting_timestamp: 0,
             state_changed_exes: Default::default(),
             running_exes: Default::default(),
             new_running_exes: Default::default(),
@@ -149,6 +152,29 @@ impl StateInner {
         self.running_exes = mem::take(&mut self.new_running_exes);
     }
 
+    fn spy_update_model(&mut self) {
+        // register newly discovered exes
+        let mut new_exes = mem::take(&mut self.new_exes);
+        for _exe in new_exes.values_mut() {
+            // TODO: (GHFunc)G_CALLBACK(new_exe_callback), data
+        }
+
+        // adjust state for exes that changed state
+        let state_changed_exes = mem::take(&mut self.state_changed_exes);
+        for _exe in state_changed_exes {
+            // TODO: (GFunc)G_CALLBACK(exe_changed_callback), data
+        }
+
+        // do some accounting
+        let _period = self.time - self.last_accounting_timestamp;
+        for _exe in self.exes.values_mut() {
+            // TODO: running_exe_inc_time(exe, period);
+        }
+        // TODO: preload_markov_foreach((GFunc)G_CALLBACK(running_markov_inc_time), GINT_TO_POINTER(period));
+
+        self.last_accounting_timestamp = self.time;
+    }
+
     pub fn dump_info(&self) {
         let span = tracing::info_span!("state dump");
         let _enter = span.enter();
@@ -212,7 +238,7 @@ impl StateInner {
 
         debug!("updating state");
         if self.model_dirty {
-            // TODO: preload_spy_update_model(data);
+            self.spy_update_model();
             self.model_dirty = false;
         }
 
