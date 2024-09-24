@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
-use tracing::{debug, warn};
+use tracing::{debug, enabled, warn, Level};
 
 #[derive(Debug)]
 pub(crate) struct StateInner {
@@ -155,6 +155,29 @@ impl StateInner {
         debug!(?self.config, ?self.time, ?self.dirty, "current config");
     }
 
+    fn prophet_predict(&mut self) {
+        for _exe in self.exes.values_mut() {
+            // TODO: exe_zero_prob(exe);
+        }
+
+        // TODO: g_ptr_array_foreach(state->maps_arr, (GFunc)G_CALLBACK(map_zero_prob), data);
+
+        // TODO: preload_markov_foreach((GFunc)G_CALLBACK(markov_bid_in_exes), data);
+
+        if enabled!(Level::DEBUG) {
+            for _exe in self.exes.values() {
+                // TODO: exe_prob_print(exe);
+            }
+        }
+
+        // TODO: preload_exemap_foreach((GHFunc)G_CALLBACK(exemap_bid_in_maps), data);
+
+        // may not be required if maps stored as BTreeMap
+        // XXX: g_ptr_array_sort(state->maps_arr, (GCompareFunc)map_prob_compare);
+
+        // TODO: preload_prophet_readahead(state->maps_arr);
+    }
+
     pub fn reload_config(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         self.config = Config::load(path)?;
         // sort map and exeprefixes ahead of time: see `utils::accept_file` for
@@ -176,7 +199,7 @@ impl StateInner {
             self.dirty = true;
         }
         if self.config.system.dopredict {
-            // TODO: preload_prophet_predict(data);
+            self.prophet_predict();
         }
 
         self.time += self.config.model.cycle as u64 / 2;
