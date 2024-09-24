@@ -117,12 +117,12 @@ mod tests {
     #[test]
     fn test_sanitize_file() {
         let path = Path::new("/bin/bash.#prelink#.12345");
-        assert_eq!(sanitize_file(&path), Some(Path::new("/bin/bash")));
+        assert_eq!(sanitize_file(path), Some(Path::new("/bin/bash")));
 
         let path = Path::new("/bin/bash");
-        assert_eq!(sanitize_file(&path), Some(Path::new("/bin/bash")));
+        assert_eq!(sanitize_file(path), Some(Path::new("/bin/bash")));
 
         let path = Path::new("/bin/bash(deleted)");
-        assert_eq!(sanitize_file(&path), None);
+        assert_eq!(sanitize_file(path), None);
     }
 }
