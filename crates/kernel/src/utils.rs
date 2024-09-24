@@ -2,7 +2,9 @@ use std::path::Path;
 
 /// Check if a file path is accepted based on the exeprefixes.
 ///
+/// <section class="warning">
 /// Make sure that the exeprefixes are sorted before calling this function.
+/// </section>
 ///
 /// ```
 /// # use kernel::utils::accept_file;
@@ -23,9 +25,16 @@ use std::path::Path;
 /// assert!(accept_file("/home/user/personal/acceptedfolder/file", &exeprefixes));
 /// // by default it accepts path that does not match any exeprefix
 /// assert!(accept_file("/no/match", &exeprefixes));
+///
+/// // you need to use a bit of typing to pass an empty slice 😅
+/// assert!(accept_file("/usr/bin/ls", &[] as &[&str]));
 /// ```
 #[inline]
-pub fn accept_file<T: AsRef<str>>(path: impl AsRef<Path>, exeprefixes: &[T]) -> bool {
+pub fn accept_file<T, U>(path: impl AsRef<Path>, exeprefixes: T) -> bool
+where
+    T: IntoIterator<Item = U>,
+    U: AsRef<str>,
+{
     let path = path.as_ref();
 
     // accept by default if no exeprefixes matched
@@ -93,14 +102,16 @@ mod tests {
         ];
         exeprefixes.sort();
 
-        assert!(accept_file("/usr/bin/ls", &exeprefixes));
-        assert!(accept_file("/home/user/foobar", &exeprefixes));
-        assert!(!accept_file("/home/user/personal/notaccept", &exeprefixes));
+        assert!(accept_file("/usr/bin/ls", exeprefixes));
+        assert!(accept_file("/home/user/foobar", exeprefixes));
+        assert!(!accept_file("/home/user/personal/notaccept", exeprefixes));
         assert!(accept_file(
             "/home/user/personal/acceptedfolder/file",
-            &exeprefixes
+            exeprefixes
         ));
-        assert!(accept_file("/no/match", &exeprefixes));
+        assert!(accept_file("/no/match", exeprefixes));
+        // test with empty exeprefixes
+        assert!(accept_file("/usr/bin/ls", &[] as &[&str]));
     }
 
     #[test]
