@@ -4,13 +4,14 @@ use crate::{
 };
 use config::Config;
 use libc::pid_t;
+use procfs::process::MMapPath;
 use std::{
     collections::{HashMap, VecDeque},
     mem,
     path::{Path, PathBuf},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
-use tracing::{debug, enabled, warn, Level};
+use tracing::{debug, enabled, trace, warn, Level};
 
 #[derive(Debug)]
 pub(crate) struct StateInner {
@@ -36,8 +37,8 @@ pub(crate) struct StateInner {
     new_exes: HashMap<PathBuf, pid_t>,
 
     exes: HashMap<PathBuf, ()>,
-
-    bad_exes: HashMap<PathBuf, ()>,
+    /// Exes that are too small to be considered. Value is the size of the exe maps.
+    bad_exes: HashMap<PathBuf, u64>,
 
     sysinfo: System,
 
@@ -45,12 +46,14 @@ pub(crate) struct StateInner {
 }
 
 impl StateInner {
+    #[tracing::instrument(skip_all)]
     pub fn new(mut config: Config) -> Self {
         let system_refresh_kind = RefreshKind::new().with_processes(
             ProcessRefreshKind::new()
                 .with_exe(UpdateKind::OnlyIfNotSet)
                 .with_memory(),
         );
+        debug!(?system_refresh_kind);
         let sysinfo = System::new_with_specifics(system_refresh_kind);
         // sort map and exeprefixes ahead of time: see `utils::accept_file` for
         // more info
@@ -75,7 +78,43 @@ impl StateInner {
         }
     }
 
+    // TODO: needed by new_exe_callback(...). Work asap.
+    #[tracing::instrument(skip_all)]
+    fn proc_get_maps(&mut self, pid: pid_t) -> Result<u64, Error> {
+        let mut size = 0;
+
+        let processes = procfs::process::all_processes()?;
+        for map_res in processes.flat_map(|p| p.map(|p| p.maps())) {
+            let Ok(maps) = map_res else {
+                warn!("Failed to get maps for pid={pid}. Am I running as root?");
+                continue;
+            };
+
+            for map in maps
+                .into_iter()
+                .filter(|v| matches!(v.pathname, MMapPath::Path(_)))
+            {
+                let MMapPath::Path(path) = map.pathname else {
+                    unreachable!("This is not possible");
+                };
+
+                let Some(path) = sanitize_file(&path) else {
+                    continue;
+                };
+                if !accept_file(path, &self.config.system.exeprefix) {
+                    continue;
+                }
+                let (start, end) = map.address;
+                let length = end - start;
+                size += length;
+            }
+        }
+        Ok(size)
+    }
+
+    #[tracing::instrument(skip(self))]
     fn proc_foreach(&mut self) {
+        trace!("Refresh system info");
         self.sysinfo.refresh_specifics(self.system_refresh_kind);
         // NOTE: we `take` the sysinfo to avoid borrowing issues when looping.
         // Because `running_process_callback` borrows `self` mutably, we can't
@@ -89,7 +128,7 @@ impl StateInner {
             }
 
             let Some(exe_path) = process.exe() else {
-                warn!("exe path not found for pid={pid}. Am I running as root?");
+                warn!("Cannot get exe path for pid={pid}. Am I running as root?");
                 continue;
             };
 
@@ -119,6 +158,28 @@ impl StateInner {
         }
     }
 
+    #[tracing::instrument(skip(self, path))]
+    fn new_exe_callback(&mut self, path: impl Into<PathBuf>, pid: pid_t) -> Result<(), Error> {
+        let path = path.into();
+        // TODO: proc_get_maps(pid, maps: NULL, exemaps: NULL)
+        let size = self.proc_get_maps(pid)?;
+        trace!(?path, size, "gathered new exe");
+
+        // exe is too small to be considered
+        if size < self.config.model.minsize as u64 {
+            trace!(?path, size, "exe is too small to be considered");
+            self.bad_exes.insert(path, size);
+            return Ok(());
+        }
+        self.proc_get_maps(pid)?;
+
+        // TODO: exe = preload_exe_new(path, TRUE, exemaps);
+        // TODO: preload_state_register_exe(exe, TRUE);
+        self.running_exes.insert(0, ());
+
+        Ok(())
+    }
+
     /// Update the exe list by its running status.
     ///
     /// If the exe is running, it is considered to be newly running, otherwise
@@ -134,8 +195,8 @@ impl StateInner {
 
     /// scan processes, see which exes started running, which are not running
     /// anymore, and what new exes are around.
+    #[tracing::instrument(skip(self))]
     fn spy_scan(&mut self) {
-        self.state_changed_exes.clear();
         self.new_running_exes.clear();
         self.new_exes.clear();
 
@@ -152,11 +213,13 @@ impl StateInner {
         self.running_exes = mem::take(&mut self.new_running_exes);
     }
 
-    fn spy_update_model(&mut self) {
+    #[tracing::instrument(skip(self))]
+    fn spy_update_model(&mut self) -> Result<(), Error> {
         // register newly discovered exes
-        let mut new_exes = mem::take(&mut self.new_exes);
-        for _exe in new_exes.values_mut() {
-            // TODO: (GHFunc)G_CALLBACK(new_exe_callback), data
+        let new_exes = mem::take(&mut self.new_exes);
+        debug!(?new_exes, "preparing to register exes");
+        for (path, pid) in new_exes {
+            self.new_exe_callback(path, pid)?;
         }
 
         // adjust state for exes that changed state
@@ -173,14 +236,15 @@ impl StateInner {
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(running_markov_inc_time), GINT_TO_POINTER(period));
 
         self.last_accounting_timestamp = self.time;
+        Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn dump_info(&self) {
-        let span = tracing::info_span!("state dump");
-        let _enter = span.enter();
         debug!(?self.config, ?self.time, ?self.dirty, "current config");
     }
 
+    #[tracing::instrument(skip(self))]
     fn prophet_predict(&mut self) {
         for _exe in self.exes.values_mut() {
             // TODO: exe_zero_prob(exe);
@@ -190,7 +254,7 @@ impl StateInner {
 
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(markov_bid_in_exes), data);
 
-        if enabled!(Level::DEBUG) {
+        if enabled!(Level::TRACE) {
             for _exe in self.exes.values() {
                 // TODO: exe_prob_print(exe);
             }
@@ -204,6 +268,7 @@ impl StateInner {
         // TODO: preload_prophet_readahead(state->maps_arr);
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn reload_config(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         self.config = Config::load(path)?;
         // sort map and exeprefixes ahead of time: see `utils::accept_file` for
@@ -214,11 +279,8 @@ impl StateInner {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn scan_and_predict(&mut self) -> Result<(), Error> {
-        let span = tracing::debug_span!("state_scan");
-        let _enter = span.enter();
-
-        debug!("scanning and predicting");
         if self.config.system.doscan {
             self.spy_scan();
             self.model_dirty = true;
@@ -232,13 +294,10 @@ impl StateInner {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn update(&mut self) -> Result<(), Error> {
-        let span = tracing::debug_span!("state_update");
-        let _enter = span.enter();
-
-        debug!("updating state");
         if self.model_dirty {
-            self.spy_update_model();
+            self.spy_update_model()?;
             self.model_dirty = false;
         }
 
