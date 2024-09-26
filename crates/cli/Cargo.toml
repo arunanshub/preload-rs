@@ -12,11 +12,10 @@ kernel = { version = "0.1.0", path = "../kernel" }
 thiserror.workspace = true
 tracing.workspace = true
 flume.workspace = true
-# additional dependencies
-anyhow = "1.0.89"
+anyhow = { version = "1.0.89", features = ["backtrace"] }
 clap = "4.5.18"
 clap-verbosity-flag = "2.2.1"
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1.40.0", features = ["macros", "parking_lot", "rt-multi-thread", "signal", "time"] }
 tracing-subscriber = "0.3.18"
 tracing-log = "0.2.0"
 

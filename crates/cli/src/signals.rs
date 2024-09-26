@@ -4,6 +4,7 @@ use tokio::signal::unix::{signal, SignalKind};
 use tracing::debug;
 
 /// Indefinitely listens to signals and sends signal events to the provided channel.
+#[tracing::instrument(skip_all)]
 pub async fn wait_for_signal(signal_event: Sender<SignalEvent>) -> Result<(), Error> {
     let mut sigusr1 = signal(SignalKind::user_defined1()).map_err(Error::SignalHandler)?;
     let mut sigusr2 = signal(SignalKind::user_defined2()).map_err(Error::SignalHandler)?;

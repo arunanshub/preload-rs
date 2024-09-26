@@ -6,8 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
 thiserror.workspace = true
-toml = "0.8.19"
-tracing.workspace = true
+toml_edit = { version = "0.22.21", features = ["serde"] }
 
 [lints]
 workspace = true

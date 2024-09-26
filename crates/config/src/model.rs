@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Model {
-    /// This is the quantum of time for preload. Preload performs data
-    /// gathering and predictions every cycle. Use an even number.
+    /// This is the quantum of time for preload. Preload performs data gathering
+    /// and predictions every cycle. Use an even number. **Measured in
+    /// seconds**.
     ///
     /// ## Note
     ///
@@ -52,7 +53,7 @@ pub struct Model {
 impl Default for Model {
     fn default() -> Self {
         Self {
-            cycle: 20,
+            cycle: 2,
             usecorrelation: true,
             minsize: 2_000_000,
             memtotal: -10,
