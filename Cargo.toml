@@ -13,6 +13,8 @@ lto = true
 codegen-units = 1
 strip = true
 opt-level = "s"
+# https://smallcultfollowing.com/babysteps/blog/2024/05/02/unwind-considered-harmful/
+panic = "abort"
 
 [profile.test]
 opt-level = 3
