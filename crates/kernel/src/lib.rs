@@ -1,5 +1,6 @@
 mod error;
 pub mod exe;
+pub mod map;
 pub mod state;
 pub mod utils;
 
