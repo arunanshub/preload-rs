@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 config = { version = "0.1.0", path = "../config" }
-educe = { version = "0.6.0", default-features = false, features = ["Eq", "PartialEq", "Ord", "PartialOrd", "Hash"] }
+educe = { version = "0.6.0", default-features = false, features = ["Debug", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd"] }
 libc = "0.2.159"
-parking_lot = { version = "0.12.3", features = ["deadlock_detection"] }
+parking_lot = "0.12.3"
 procfs = "0.16.0"
 sysinfo = "0.31.4"
 thiserror.workspace = true
