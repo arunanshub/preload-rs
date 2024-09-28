@@ -5,7 +5,9 @@ edition = "2021"
 
 [dependencies]
 config = { version = "0.1.0", path = "../config" }
+educe = { version = "0.6.0", default-features = false, features = ["Debug", "Eq", "Hash", "Ord", "PartialEq", "PartialOrd"] }
 libc = "0.2.159"
+parking_lot = "0.12.3"
 procfs = "0.16.0"
 sysinfo = "0.31.4"
 thiserror.workspace = true
@@ -13,7 +15,9 @@ tokio = { version = "1.40.0", features = ["sync", "time"] }
 tracing.workspace = true
 
 [dev-dependencies]
+pretty_assertions = "1.4.1"
 proptest.workspace = true
+rand = "0.8.5"
 
 [lints]
 workspace = true
