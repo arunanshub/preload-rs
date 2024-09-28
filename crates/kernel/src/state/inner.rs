@@ -317,21 +317,22 @@ impl StateInner {
 
     #[tracing::instrument(skip(self))]
     fn prophet_predict(&mut self) {
-        for _exe in self.exes.values_mut() {
-            // TODO: exe_zero_prob(exe);
-        }
-
-        // TODO: g_ptr_array_foreach(state->maps_arr, (GFunc)G_CALLBACK(map_zero_prob), data);
+        // reset probabilities that we are going to compute
+        self.exes.values().for_each(|exe| exe.zero_lnprob());
+        self.maps.iter().for_each(|map| map.zero_lnprob());
 
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(markov_bid_in_exes), data);
 
         if enabled!(Level::TRACE) {
-            for _exe in self.exes.values() {
-                // TODO: exe_prob_print(exe);
-            }
+            self.exes.values().for_each(|exe| {
+                trace!(lnprob=exe.lnprob(), path=?exe.path(), "lnprob of exes");
+            });
         }
 
-        // TODO: preload_exemap_foreach((GHFunc)G_CALLBACK(exemap_bid_in_maps), data);
+        // exes bid in maps
+        self.exes
+            .values()
+            .for_each(|exe| exe.bid_in_maps(self.last_running_timestamp));
 
         // may not be required if maps stored as BTreeMap
         // XXX: g_ptr_array_sort(state->maps_arr, (GCompareFunc)map_prob_compare);

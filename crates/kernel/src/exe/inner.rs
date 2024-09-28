@@ -23,6 +23,8 @@ pub struct ExeInner {
     pub running_timestamp: Option<u64>,
 
     pub change_timestamp: u64,
+
+    pub lnprob: f32,
 }
 
 impl ExeInner {
@@ -56,6 +58,16 @@ impl ExeInner {
             running_timestamp >= last_running_timestamp
         } else {
             0 == last_running_timestamp
+        }
+    }
+
+    pub fn bid_in_maps(&self, last_running_timestamp: u64) {
+        if self.is_running(last_running_timestamp) {
+            self.exemaps.iter().for_each(|v| v.map.increase_lnprob(1.));
+        } else {
+            self.exemaps
+                .iter()
+                .for_each(|v| v.map.set_lnprob(self.lnprob));
         }
     }
 }

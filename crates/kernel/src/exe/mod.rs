@@ -33,6 +33,14 @@ impl Exe {
         self.0.lock().path.clone()
     }
 
+    pub fn lnprob(&self) -> f32 {
+        self.0.lock().lnprob
+    }
+
+    pub fn zero_lnprob(&self) {
+        self.0.lock().lnprob = 0.0;
+    }
+
     pub fn is_running(&self, last_running_timestamp: u64) -> bool {
         self.0.lock().is_running(last_running_timestamp)
     }
@@ -51,5 +59,9 @@ impl Exe {
 
     pub fn set_seq(&self, seq: u64) {
         self.0.lock().seq = seq;
+    }
+
+    pub fn bid_in_maps(&self, last_running_timestamp: u64) {
+        self.0.lock().bid_in_maps(last_running_timestamp);
     }
 }

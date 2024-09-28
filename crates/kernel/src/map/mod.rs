@@ -35,4 +35,16 @@ impl Map {
     pub fn set_seq(&self, seq: u64) {
         self.inner.runtime.lock().seq = seq;
     }
+
+    pub fn zero_lnprob(&self) {
+        self.inner.runtime.lock().lnprob = 0.0;
+    }
+
+    pub fn increase_lnprob(&self, lnprob: f32) {
+        self.inner.runtime.lock().lnprob += lnprob;
+    }
+
+    pub fn set_lnprob(&self, lnprob: f32) {
+        self.inner.runtime.lock().lnprob = lnprob;
+    }
 }
