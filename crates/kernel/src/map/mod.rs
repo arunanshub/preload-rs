@@ -48,3 +48,37 @@ impl Map {
         self.inner.runtime.lock().lnprob = lnprob;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use prop::collection::vec;
+    use proptest::prelude::*;
+
+    prop_compose! {
+        fn arbitrary_map()(
+            path in ".*",
+            offset in 0..usize::MAX,
+            length in 0..usize::MAX,
+            lnprob: f32,
+            seq in 0..u64::MAX,
+        ) -> Map {
+            let map = Map::new(path, offset, length);
+            map.set_lnprob(lnprob);
+            map.set_seq(seq);
+            map
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn map_is_sortable(mut map in vec(arbitrary_map(), 1..3000)) {
+            map.sort();
+            for map_l_r in map.chunks_exact(2) {
+                let map_left = &map_l_r[0];
+                let map_right = &map_l_r[1];
+                assert!(map_left < map_right);
+            }
+        }
+    }
+}

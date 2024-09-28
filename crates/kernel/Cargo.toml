@@ -15,6 +15,7 @@ tokio = { version = "1.40.0", features = ["sync", "time"] }
 tracing.workspace = true
 
 [dev-dependencies]
+pretty_assertions = "1.4.1"
 proptest.workspace = true
 rand = "0.8.5"
 

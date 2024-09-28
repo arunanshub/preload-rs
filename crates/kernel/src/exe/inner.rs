@@ -48,8 +48,12 @@ impl ExeInner {
 
     pub fn with_exemaps(&mut self, exemaps: HashSet<ExeMap>) -> &mut Self {
         self.exemaps = exemaps;
-        let size: usize = self.exemaps.iter().map(|m| m.map.length()).sum();
-        self.size += size;
+        let size: usize = self
+            .exemaps
+            .iter()
+            .map(|map| map.map.length())
+            .fold(0usize, |acc, x| acc.wrapping_add(x));
+        self.size = self.size.wrapping_add(size);
         self
     }
 
