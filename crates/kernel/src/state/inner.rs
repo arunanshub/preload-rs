@@ -1,12 +1,12 @@
 use crate::{
     utils::{accept_file, sanitize_file},
-    Error,
+    Error, Exe, ExeMap, Map,
 };
 use config::Config;
 use libc::pid_t;
 use procfs::process::MMapPath;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{BTreeSet, HashMap, HashSet, VecDeque},
     mem,
     path::{Path, PathBuf},
 };
@@ -28,15 +28,21 @@ pub(crate) struct StateInner {
 
     last_accounting_timestamp: u64,
 
-    state_changed_exes: VecDeque<()>,
+    map_seq: u64,
 
-    running_exes: VecDeque<()>,
+    maps: BTreeSet<Map>,
 
-    new_running_exes: VecDeque<()>,
+    exe_seq: u64,
+
+    state_changed_exes: VecDeque<Exe>,
+
+    running_exes: VecDeque<Exe>,
+
+    new_running_exes: VecDeque<Exe>,
 
     new_exes: HashMap<PathBuf, pid_t>,
 
-    exes: HashMap<PathBuf, ()>,
+    exes: HashMap<PathBuf, Exe>,
     /// Exes that are too small to be considered. Value is the size of the exe maps.
     bad_exes: HashMap<PathBuf, u64>,
 
@@ -67,6 +73,9 @@ impl StateInner {
             time: 0,
             last_running_timestamp: 0,
             last_accounting_timestamp: 0,
+            exe_seq: 0,
+            map_seq: 0,
+            maps: Default::default(),
             state_changed_exes: Default::default(),
             running_exes: Default::default(),
             new_running_exes: Default::default(),
@@ -78,10 +87,18 @@ impl StateInner {
         }
     }
 
-    // TODO: needed by new_exe_callback(...). Work asap.
     #[tracing::instrument(skip_all)]
-    fn proc_get_maps(&mut self, pid: pid_t) -> Result<u64, Error> {
+    fn proc_get_maps(
+        &mut self,
+        pid: pid_t,
+        with_exemaps: bool,
+    ) -> Result<(u64, Option<HashSet<ExeMap>>), Error> {
         let mut size = 0;
+        let mut exemaps = if with_exemaps {
+            Some(HashSet::new())
+        } else {
+            None
+        };
 
         let processes = procfs::process::all_processes()?;
         for map_res in processes.flat_map(|p| p.map(|p| p.maps())) {
@@ -107,9 +124,28 @@ impl StateInner {
                 let (start, end) = map.address;
                 let length = end - start;
                 size += length;
+
+                if let Some(exemaps) = &mut exemaps {
+                    let mut map = Map::new(path, map.offset as usize, length as usize);
+                    if let Some(existing_map) = self.maps.get(&map) {
+                        map = existing_map.clone();
+                    }
+                    exemaps.insert(ExeMap::new(map.clone()));
+                    self.register_map(map);
+                }
             }
         }
-        Ok(size)
+
+        Ok((size, exemaps))
+    }
+
+    fn register_map(&mut self, map: Map) {
+        if self.maps.contains(&map) {
+            return;
+        }
+        self.map_seq += 1;
+        map.set_seq(self.map_seq);
+        self.maps.insert(map);
     }
 
     #[tracing::instrument(skip(self))]
@@ -146,13 +182,12 @@ impl StateInner {
     fn running_process_callback(&mut self, pid: pid_t, exe_path: impl Into<PathBuf>) {
         let exe_path = exe_path.into();
 
-        if let Some(_exe) = self.exes.get(&exe_path) {
-            // TODO: !exe_is_running(exe);
-            if true {
-                self.new_running_exes.push_back(());
-                self.state_changed_exes.push_back(());
+        if let Some(exe) = self.exes.get(&exe_path) {
+            if !exe.is_running(self.last_running_timestamp) {
+                self.new_running_exes.push_back(exe.clone());
+                self.state_changed_exes.push_back(exe.clone());
             }
-            // TODO: exe.running_timestamp = self.time;
+            exe.update_running_timestamp(self.time);
         } else if !self.bad_exes.contains_key(&exe_path) {
             self.new_exes.insert(exe_path, pid);
         }
@@ -161,8 +196,7 @@ impl StateInner {
     #[tracing::instrument(skip(self, path))]
     fn new_exe_callback(&mut self, path: impl Into<PathBuf>, pid: pid_t) -> Result<(), Error> {
         let path = path.into();
-        // TODO: proc_get_maps(pid, maps: NULL, exemaps: NULL)
-        let size = self.proc_get_maps(pid)?;
+        let (size, _) = self.proc_get_maps(pid, false)?;
         trace!(?path, size, "gathered new exe");
 
         // exe is too small to be considered
@@ -171,22 +205,42 @@ impl StateInner {
             self.bad_exes.insert(path, size);
             return Ok(());
         }
-        self.proc_get_maps(pid)?;
 
-        // TODO: exe = preload_exe_new(path, TRUE, exemaps);
-        // TODO: preload_state_register_exe(exe, TRUE);
-        self.running_exes.insert(0, ());
+        let (size, exemaps) = self.proc_get_maps(pid, true)?;
+        if size == 0 {
+            warn!(?path, "exe has no maps. Maybe the process died?");
+            return Ok(());
+        }
+        let Some(exemaps) = exemaps else {
+            unreachable!("exemaps should be Some because we explicitly asked for it");
+        };
+
+        let exe = Exe::new(path)
+            .with_running(self.last_running_timestamp)
+            .with_exemaps(exemaps);
+        self.register_exe(exe.clone(), true);
+        self.running_exes.push_front(exe);
 
         Ok(())
+    }
+
+    #[tracing::instrument(skip(self, exe))]
+    fn register_exe(&mut self, exe: Exe, create_markovs: bool) {
+        self.exe_seq += 1;
+        exe.set_seq(self.exe_seq);
+        trace!(?exe, "registering exe");
+        if create_markovs {
+            // TODO: g_hash_table_foreach(state->exes, (GHFunc)shift_preload_markov_new, exe);
+        }
+        self.exes.insert(exe.path(), exe);
     }
 
     /// Update the exe list by its running status.
     ///
     /// If the exe is running, it is considered to be newly running, otherwise
     /// it is considered to have changed state.
-    fn update_exe_list(&mut self, exe: ()) {
-        // TODO: exe_is_running(exe);
-        if true {
+    fn update_exe_list(&mut self, exe: Exe) {
+        if exe.is_running(self.last_running_timestamp) {
             self.new_running_exes.push_back(exe);
         } else {
             self.state_changed_exes.push_back(exe);
@@ -198,6 +252,7 @@ impl StateInner {
     #[tracing::instrument(skip(self))]
     fn spy_scan(&mut self) {
         self.new_running_exes.clear();
+        self.state_changed_exes.clear();
         self.new_exes.clear();
 
         self.proc_foreach();
@@ -206,11 +261,22 @@ impl StateInner {
 
         // figure out who's not running by checking their timestamp
         let running_exes = mem::take(&mut self.running_exes);
+        trace!(
+            num_running_exes = running_exes.len(),
+            "running exes found during scan"
+        );
         for exe in running_exes {
             self.update_exe_list(exe);
         }
 
+        trace!(num_new_running_exes = self.new_running_exes.len());
         self.running_exes = mem::take(&mut self.new_running_exes);
+    }
+
+    fn exe_changed_callback(&self, exe: &Exe) {
+        exe.update_change_timestamp(self.time);
+        // TODO: g_set_foreach(exe->markovs, (GFunc)G_CALLBACK(preload_markov_state_changed), NULL);
+        // exe.markovs_state_changed(self.time);
     }
 
     #[tracing::instrument(skip(self))]
@@ -218,21 +284,26 @@ impl StateInner {
         // register newly discovered exes
         let new_exes = mem::take(&mut self.new_exes);
         debug!(?new_exes, "preparing to register exes");
+        trace!(bad_exes=?self.bad_exes, "bad exes");
         for (path, pid) in new_exes {
             self.new_exe_callback(path, pid)?;
         }
 
         // adjust state for exes that changed state
         let state_changed_exes = mem::take(&mut self.state_changed_exes);
-        for _exe in state_changed_exes {
-            // TODO: (GFunc)G_CALLBACK(exe_changed_callback), data
+        trace!(num = state_changed_exes.len(), "Exes that changed state");
+        for exe in state_changed_exes {
+            self.exe_changed_callback(&exe);
         }
 
         // do some accounting
-        let _period = self.time - self.last_accounting_timestamp;
-        for _exe in self.exes.values_mut() {
-            // TODO: running_exe_inc_time(exe, period);
+        let period = self.time - self.last_accounting_timestamp;
+        for exe in self.exes.values_mut() {
+            if exe.is_running(self.last_running_timestamp) {
+                exe.update_time(period);
+            }
         }
+
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(running_markov_inc_time), GINT_TO_POINTER(period));
 
         self.last_accounting_timestamp = self.time;
@@ -279,12 +350,28 @@ impl StateInner {
         Ok(())
     }
 
+    fn dump_log(&self) {
+        debug!(
+            time = self.time,
+            exe_seq = self.exe_seq,
+            map_seq = self.map_seq,
+            num_exes = self.exes.len(),
+            num_bad_exes = self.bad_exes.len(),
+            num_maps = self.maps.len(),
+            num_running_exes = self.running_exes.len(),
+            "Dump log:"
+        )
+    }
+
     #[tracing::instrument(skip(self))]
     pub fn scan_and_predict(&mut self) -> Result<(), Error> {
         if self.config.system.doscan {
             self.spy_scan();
             self.model_dirty = true;
             self.dirty = true;
+        }
+        if enabled!(Level::DEBUG) {
+            self.dump_log();
         }
         if self.config.system.dopredict {
             self.prophet_predict();

@@ -27,4 +27,12 @@ impl Map {
     pub fn block(&self) -> u64 {
         self.inner.runtime.lock().block
     }
+
+    pub fn length(&self) -> usize {
+        self.inner.length
+    }
+
+    pub fn set_seq(&self, seq: u64) {
+        self.inner.runtime.lock().seq = seq;
+    }
 }
