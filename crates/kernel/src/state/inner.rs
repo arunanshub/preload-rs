@@ -1,8 +1,8 @@
 use crate::{
-    utils::{accept_file, sanitize_file},
-    Error, Exe, ExeMap, Map,
+    utils::{accept_file, kb, sanitize_file},
+    Error, Exe, ExeMap, Map, MemStat,
 };
-use config::Config;
+use config::{Config, Model};
 use libc::pid_t;
 use procfs::process::MMapPath;
 use std::{
@@ -11,7 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
-use tracing::{debug, enabled, trace, warn, Level};
+use tracing::{debug, enabled, error, trace, warn, Level};
 
 #[derive(Debug)]
 pub(crate) struct StateInner {
@@ -49,6 +49,8 @@ pub(crate) struct StateInner {
     sysinfo: System,
 
     system_refresh_kind: RefreshKind,
+
+    memstat_timestamp: u64,
 }
 
 impl StateInner {
@@ -84,6 +86,7 @@ impl StateInner {
             bad_exes: Default::default(),
             sysinfo,
             system_refresh_kind,
+            memstat_timestamp: 0,
         }
     }
 
@@ -316,7 +319,7 @@ impl StateInner {
     }
 
     #[tracing::instrument(skip(self))]
-    fn prophet_predict(&mut self) {
+    fn prophet_predict(&mut self) -> Result<(), Error> {
         // reset probabilities that we are going to compute
         self.exes.values().for_each(|exe| exe.zero_lnprob());
         self.maps.iter().for_each(|map| map.zero_lnprob());
@@ -337,7 +340,65 @@ impl StateInner {
         // may not be required if maps stored as BTreeMap
         // XXX: g_ptr_array_sort(state->maps_arr, (GCompareFunc)map_prob_compare);
 
-        // TODO: preload_prophet_readahead(state->maps_arr);
+        self.prophet_readahead()?;
+        Ok(())
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn prophet_readahead(&mut self) -> Result<(), Error> {
+        let memstat = MemStat::try_new()?;
+        let Model {
+            memtotal,
+            memcached,
+            memfree,
+            ..
+        } = self.config.model;
+
+        // amount of memory we are allowed to use for readahead
+        let mut memavail = {
+            let mut temp = memtotal.clamp(-100, 100) as i64 * (memstat.total / 100) as i64
+                + memfree.clamp(-100, 100) as i64 * (memstat.free / 100) as i64;
+            temp = temp.max(0);
+            temp += memcached.clamp(-100, 100) as i64 * (memstat.cached as i64 / 100);
+            temp
+        };
+        let memavailtotal = memavail;
+        self.memstat_timestamp = self.time;
+
+        let mut i = 0;
+        let mut maps_iter = self.maps.iter();
+        while i < maps_iter.len() {
+            let Some(map) = maps_iter.nth(i) else {
+                error!("Map not found. Please report a bug!");
+                break;
+            };
+            let map_length = kb(map.length()) as i64;
+            if map.lnprob() < 0.0 && map_length <= memavail {
+                continue;
+            }
+            i += 1;
+
+            memavail -= map_length;
+            if enabled!(Level::TRACE) {
+                trace!(lnprob = map.lnprob(), "lnprob of map");
+            }
+
+            trace!(
+                memavailtotal,
+                memallowed = memavailtotal - memavail,
+                "{memavailtotal} available for preloading, using {} of it.",
+                memavailtotal - memavail
+            );
+        }
+
+        if i > 0 {
+            // TODO: preload_readahead(maps_arr->pdata, i);
+            debug!(map_maps_readahead = i, "Readahead {i} maps.");
+        } else {
+            debug!("Nothing to readahead.");
+        }
+
+        Ok(())
     }
 
     #[tracing::instrument(skip_all)]
@@ -375,7 +436,7 @@ impl StateInner {
             self.dump_log();
         }
         if self.config.system.dopredict {
-            self.prophet_predict();
+            self.prophet_predict()?;
         }
 
         self.time += self.config.model.cycle as u64 / 2;
