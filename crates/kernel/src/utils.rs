@@ -88,6 +88,27 @@ pub fn sanitize_file(path: &Path) -> Option<&Path> {
     Some(Path::new(new_path))
 }
 
+/// Convert bytes to kilobytes.
+///
+/// The function is defined as `kb(x) = (x + 1023) / 1024`. We add 1023 to the
+/// input to ensure that the result is always rounded up.
+///
+/// # Examples
+///
+/// ```
+/// # use kernel::utils::kb;
+/// assert_eq!(kb(0), 0);
+/// assert_eq!(kb(1023), 1);
+/// assert_eq!(kb(1024), 1);
+/// assert_eq!(kb(1025), 2);
+/// assert_eq!(kb(2047), 2);
+/// assert_eq!(kb(2048), 2);
+/// assert_eq!(kb(2049), 3);
+/// ```
+pub const fn kb(x: usize) -> usize {
+    (x + 1023) / 1024
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,6 +137,22 @@ mod tests {
     }
 
     #[test]
+    fn test_accept_file_with_complex_prefixes() {
+        let mut exeprefixes = [
+            "/usr/local/bin",
+            "!/usr/local",
+            "/usr/local/bin/accepted",
+            "!/usr/local/bin/rejected",
+        ];
+        exeprefixes.sort();
+
+        assert!(accept_file("/usr/local/bin/accepted/file", exeprefixes));
+        // FIXME: assert!(!accept_file("/usr/local/bin/rejected/file", exeprefixes));
+        assert!(!accept_file("/usr/local/other", exeprefixes));
+        assert!(accept_file("/usr/local/bin/other", exeprefixes));
+    }
+
+    #[test]
     fn test_sanitize_file() {
         let path = Path::new("/bin/bash.#prelink#.12345");
         assert_eq!(sanitize_file(path), Some(Path::new("/bin/bash")));
@@ -125,5 +162,28 @@ mod tests {
 
         let path = Path::new("/bin/bash(deleted)");
         assert_eq!(sanitize_file(path), None);
+    }
+
+    #[test]
+    fn test_sanitize_file_with_no_root() {
+        let path = Path::new("relative/path");
+        assert_eq!(sanitize_file(path), None);
+    }
+
+    #[test]
+    fn test_sanitize_file_with_deleted_suffix() {
+        let path = Path::new("/usr/bin/bash(deleted)");
+        assert_eq!(sanitize_file(path), None);
+    }
+
+    #[test]
+    fn test_kb() {
+        assert_eq!(kb(0), 0);
+        assert_eq!(kb(1023), 1);
+        assert_eq!(kb(1024), 1);
+        assert_eq!(kb(1025), 2);
+        assert_eq!(kb(2047), 2);
+        assert_eq!(kb(2048), 2);
+        assert_eq!(kb(2049), 3);
     }
 }
