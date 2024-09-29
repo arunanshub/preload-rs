@@ -5,4 +5,7 @@ pub enum Error {
 
     #[error("Failed to read procfs info: {0}")]
     ProcfsReadFailed(#[from] procfs::ProcError),
+
+    #[error("Procfs field does not exist: {0}")]
+    ProcfsFieldDoesNotExist(String),
 }
