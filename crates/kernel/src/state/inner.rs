@@ -13,7 +13,7 @@ use std::{
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 use tracing::{debug, enabled, error, trace, warn, Level};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct StateInner {
     /// Configuration is created by the user and (probably) loaded from a file.
     pub(crate) config: Config,
@@ -70,23 +70,9 @@ impl StateInner {
 
         Self {
             config,
-            dirty: false,
-            model_dirty: false,
-            time: 0,
-            last_running_timestamp: 0,
-            last_accounting_timestamp: 0,
-            exe_seq: 0,
-            map_seq: 0,
-            maps: Default::default(),
-            state_changed_exes: Default::default(),
-            running_exes: Default::default(),
-            new_running_exes: Default::default(),
-            new_exes: Default::default(),
-            exes: Default::default(),
-            bad_exes: Default::default(),
             sysinfo,
             system_refresh_kind,
-            memstat_timestamp: 0,
+            ..Default::default()
         }
     }
 
