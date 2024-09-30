@@ -494,7 +494,6 @@ dependencies = [
  "pretty_assertions",
  "procfs",
  "proptest",
- "rand",
  "sysinfo",
  "thiserror",
  "tokio",
