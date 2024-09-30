@@ -1,5 +1,5 @@
 use crate::Error;
-use procfs::Current;
+use procfs::{page_size, vmstat, Current, Meminfo};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MemStat {
@@ -13,19 +13,18 @@ pub struct MemStat {
 
 impl MemStat {
     pub fn try_new() -> Result<Self, Error> {
-        let mem_info = procfs::Meminfo::current()?;
-        let vm_info = procfs::vmstat()?;
+        let mem_info = Meminfo::current()?;
+        let vm_info = vmstat()?;
 
-        let mut pagein = *vm_info
+        let page_size = page_size();
+        let pagein = vm_info
             .get("pgpgin")
-            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgin".into()))?;
-        let mut pageout = *vm_info
+            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgin".into()))
+            .map(|val| val * page_size as i64 / 1024)?;
+        let pageout = vm_info
             .get("pgpgout")
-            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgout".into()))?;
-        let pagesize = procfs::page_size();
-
-        pagein *= pagesize as i64 / 1024;
-        pageout *= pagesize as i64 / 1024;
+            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgout".into()))
+            .map(|val| val * page_size as i64 / 1024)?;
 
         Ok(Self {
             total: mem_info.mem_total,
@@ -35,5 +34,21 @@ impl MemStat {
             pagein,
             pageout,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_memstat() {
+        let memstat = MemStat::try_new().unwrap();
+        assert!(memstat.total > 0);
+        assert!(memstat.free > 0);
+        assert!(memstat.buffers > 0);
+        assert!(memstat.cached > 0);
+        assert!(memstat.pagein >= 0);
+        assert!(memstat.pageout >= 0);
     }
 }
