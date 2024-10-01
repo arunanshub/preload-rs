@@ -12,7 +12,7 @@ pub struct RuntimeStats {
     pub seq: u64,
 
     /// On-disk location of the start of the map.
-    pub block: u64,
+    pub block: Option<u64>,
     // private: u64,
 }
 

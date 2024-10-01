@@ -3,9 +3,12 @@ use crate::{
     Error, Exe, ExeMap, Map, MemStat,
 };
 use config::{Config, Model};
+use itertools::Itertools;
 use libc::pid_t;
 use procfs::process::MMapPath;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
+    cmp::Ordering,
     collections::{BTreeSet, HashMap, HashSet, VecDeque},
     mem,
     path::{Path, PathBuf},
@@ -287,11 +290,11 @@ impl StateInner {
 
         // do some accounting
         let period = self.time - self.last_accounting_timestamp;
-        for exe in self.exes.values_mut() {
+        self.exes.par_iter().for_each(|(_, exe)| {
             if exe.is_running(self.last_running_timestamp) {
                 exe.update_time(period);
             }
-        }
+        });
 
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(running_markov_inc_time), GINT_TO_POINTER(period));
 
@@ -307,21 +310,21 @@ impl StateInner {
     #[tracing::instrument(skip(self))]
     fn prophet_predict(&mut self) -> Result<(), Error> {
         // reset probabilities that we are going to compute
-        self.exes.values().for_each(|exe| exe.zero_lnprob());
-        self.maps.iter().for_each(|map| map.zero_lnprob());
+        self.exes.par_iter().for_each(|(_, exe)| exe.zero_lnprob());
+        self.maps.par_iter().for_each(|map| map.zero_lnprob());
 
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(markov_bid_in_exes), data);
 
         if enabled!(Level::TRACE) {
-            self.exes.values().for_each(|exe| {
+            self.exes.par_iter().for_each(|(_, exe)| {
                 trace!(lnprob=exe.lnprob(), path=?exe.path(), "lnprob of exes");
             });
         }
 
         // exes bid in maps
         self.exes
-            .values()
-            .for_each(|exe| exe.bid_in_maps(self.last_running_timestamp));
+            .par_iter()
+            .for_each(|(_, exe)| exe.bid_in_maps(self.last_running_timestamp));
 
         // may not be required if maps stored as BTreeMap
         // XXX: g_ptr_array_sort(state->maps_arr, (GCompareFunc)map_prob_compare);
@@ -351,10 +354,14 @@ impl StateInner {
         let memavailtotal = memavail;
         self.memstat_timestamp = self.time;
 
-        let mut i = 0;
-        let mut maps_iter = self.maps.iter();
-        while i < maps_iter.len() {
-            let Some(map) = maps_iter.nth(i) else {
+        let mut num_maps_readahead = 0;
+        let mut maps_iter = self.maps.iter().sorted_by(|a, b| {
+            a.lnprob()
+                .partial_cmp(&b.lnprob())
+                .unwrap_or(Ordering::Equal)
+        });
+        while num_maps_readahead < maps_iter.len() {
+            let Some(map) = maps_iter.nth(num_maps_readahead) else {
                 error!("Map not found. Please report a bug!");
                 break;
             };
@@ -362,7 +369,7 @@ impl StateInner {
             if map.lnprob() < 0.0 && map_length <= memavail {
                 continue;
             }
-            i += 1;
+            num_maps_readahead += 1;
 
             memavail -= map_length;
             if enabled!(Level::TRACE) {
@@ -377,9 +384,9 @@ impl StateInner {
             );
         }
 
-        if i > 0 {
+        if num_maps_readahead > 0 {
             // TODO: preload_readahead(maps_arr->pdata, i);
-            debug!(map_maps_readahead = i, "Readahead {i} maps.");
+            debug!(num_maps_readahead, "Readahead {num_maps_readahead} maps.");
         } else {
             debug!("Nothing to readahead.");
         }
@@ -398,6 +405,7 @@ impl StateInner {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     fn dump_log(&self) {
         debug!(
             time = self.time,

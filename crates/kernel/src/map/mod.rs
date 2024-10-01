@@ -24,7 +24,7 @@ impl Map {
         self.inner.runtime.lock().seq
     }
 
-    pub fn block(&self) -> u64 {
+    pub fn block(&self) -> Option<u64> {
         self.inner.runtime.lock().block
     }
 
