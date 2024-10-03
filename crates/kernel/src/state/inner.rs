@@ -1,12 +1,12 @@
 use crate::{
-    utils::{accept_file, kb, sanitize_file},
+    utils::{accept_file, kb, readahead, sanitize_file},
     Error, Exe, ExeMap, Map, MemStat,
 };
-use config::{Config, Model};
+use config::{Config, Model, SortStrategy};
 use itertools::Itertools;
 use libc::pid_t;
 use procfs::process::MMapPath;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::*;
 use std::{
     cmp::Ordering,
     collections::{BTreeSet, HashMap, HashSet, VecDeque},
@@ -33,6 +33,8 @@ pub(crate) struct StateInner {
 
     map_seq: u64,
 
+    // TODO: decide whether BTreeSet is necessary because we are sorting it
+    // again as a vec.
     maps: BTreeSet<Map>,
 
     exe_seq: u64,
@@ -118,7 +120,7 @@ impl StateInner {
                 size += length;
 
                 if let Some(exemaps) = &mut exemaps {
-                    let mut map = Map::new(path, map.offset as usize, length as usize);
+                    let mut map = Map::new(path, map.offset, length);
                     if let Some(existing_map) = self.maps.get(&map) {
                         map = existing_map.clone();
                     }
@@ -354,12 +356,17 @@ impl StateInner {
         let memavailtotal = memavail;
         self.memstat_timestamp = self.time;
 
+        // XXX: we only readahead a subset of all maps. Maybe find a better way
+        // to select maps to readahead without additional vec allocation.
+        let mut maps_to_readahead = vec![];
         let mut num_maps_readahead = 0;
+
         let mut maps_iter = self.maps.iter().sorted_by(|a, b| {
             a.lnprob()
                 .partial_cmp(&b.lnprob())
                 .unwrap_or(Ordering::Equal)
         });
+        // XXX: clean up the loop
         while num_maps_readahead < maps_iter.len() {
             let Some(map) = maps_iter.nth(num_maps_readahead) else {
                 error!("Map not found. Please report a bug!");
@@ -369,7 +376,6 @@ impl StateInner {
             if map.lnprob() < 0.0 && map_length <= memavail {
                 continue;
             }
-            num_maps_readahead += 1;
 
             memavail -= map_length;
             if enabled!(Level::TRACE) {
@@ -382,16 +388,67 @@ impl StateInner {
                 "{memavailtotal} available for preloading, using {} of it.",
                 memavailtotal - memavail
             );
+
+            num_maps_readahead += 1;
+            maps_to_readahead.push(map);
         }
 
         if num_maps_readahead > 0 {
-            // TODO: preload_readahead(maps_arr->pdata, i);
-            debug!(num_maps_readahead, "Readahead {num_maps_readahead} maps.");
+            self.preload_readahead(&mut maps_to_readahead);
+            let num_maps = self.maps.len();
+            debug!(
+                num_maps_readahead,
+                num_maps, "Have {num_maps} maps, readahead {num_maps_readahead} maps."
+            );
         } else {
             debug!("Nothing to readahead.");
         }
 
         Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn preload_readahead(&self, maps: &mut [&Map]) {
+        // sort files
+        if let Some(sort_strategy) = self.config.system.sortstrategy {
+            trace!("Sorting {} maps by {:?}.", maps.len(), sort_strategy);
+            match sort_strategy {
+                SortStrategy::Path => {
+                    maps.par_sort_by(|a, b| a.path().cmp(b.path()));
+                }
+                SortStrategy::Block | SortStrategy::Inode => {
+                    let need_block = maps.par_iter().any(|map| map.block().is_none());
+                    if need_block {
+                        trace!("Some maps don't have block.");
+                        // sorting by path to make stat fast
+                        maps.par_sort_by(|a, b| a.path().cmp(b.path()));
+                        // set block if using inode
+                        maps.par_iter()
+                            .filter_map(|map| match map.block() {
+                                Some(_) => None,
+                                None => Some(map),
+                            })
+                            .for_each(|map| {
+                                // TODO: strategy == Inode
+                                if let Err(err) = map.set_block() {
+                                    trace!(?err, "Failed to set block for map")
+                                }
+                            });
+                    }
+                    // sort by block
+                    maps.par_sort_by(|a, b| a.block().cmp(&b.block()));
+                }
+            }
+        }
+
+        maps.par_iter().for_each(|map| {
+            // TODO: if (path && offset <= files[i]->offset ...) {}
+            if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64) {
+                warn!(path=?map.path(), %error, "Failed to readahead");
+            } else {
+                trace!(?map, "Readahead done.");
+            }
+        });
     }
 
     #[tracing::instrument(skip_all)]

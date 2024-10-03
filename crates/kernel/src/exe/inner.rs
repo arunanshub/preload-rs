@@ -13,7 +13,7 @@ pub struct ExeInner {
     #[educe(Debug(ignore))]
     pub exemaps: HashSet<ExeMap>,
 
-    pub size: usize,
+    pub size: u64,
 
     pub seq: u64,
 
@@ -49,11 +49,11 @@ impl ExeInner {
 
     pub fn with_exemaps(&mut self, exemaps: HashSet<ExeMap>) -> &mut Self {
         self.exemaps = exemaps;
-        let size: usize = self
+        let size = self
             .exemaps
             .par_iter()
             .map(|map| map.map.length())
-            .reduce(|| 0usize, |acc, x| acc.wrapping_add(x));
+            .reduce(|| 0, |acc, x| acc.wrapping_add(x));
         self.size = self.size.wrapping_add(size);
         self
     }

@@ -24,10 +24,10 @@ pub struct MapInner {
     pub path: PathBuf,
 
     /// Offset of the mapped section in bytes.
-    pub offset: usize,
+    pub offset: u64,
 
     /// Length of the mapped section in bytes.
-    pub length: usize,
+    pub length: u64,
 
     /// Runtime statistics related to the map.
     #[educe(Eq(ignore), Ord(ignore), Hash(ignore))]
@@ -35,7 +35,7 @@ pub struct MapInner {
 }
 
 impl MapInner {
-    pub fn new(path: impl Into<PathBuf>, offset: usize, length: usize) -> Self {
+    pub fn new(path: impl Into<PathBuf>, offset: u64, length: u64) -> Self {
         Self {
             path: path.into(),
             length,

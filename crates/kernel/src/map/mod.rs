@@ -14,7 +14,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(path: impl Into<PathBuf>, offset: usize, length: usize) -> Self {
+    pub fn new(path: impl Into<PathBuf>, offset: u64, length: u64) -> Self {
         Self {
             inner: Arc::new(MapInner::new(path, offset, length)),
         }
@@ -36,8 +36,12 @@ impl Map {
         self.inner.runtime.lock().block
     }
 
-    pub fn length(&self) -> usize {
+    pub fn length(&self) -> u64 {
         self.inner.length
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.inner.offset
     }
 
     pub fn set_seq(&self, seq: u64) {
@@ -70,8 +74,8 @@ mod tests {
     prop_compose! {
         fn arbitrary_map()(
             path in ".*",
-            offset in 0..usize::MAX,
-            length in 0..usize::MAX,
+            offset in 0..u64::MAX,
+            length in 0..u64::MAX,
             lnprob: f32,
             seq in 0..u64::MAX,
         ) -> Map {

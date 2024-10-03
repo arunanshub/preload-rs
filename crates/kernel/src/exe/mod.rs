@@ -41,7 +41,7 @@ impl Exe {
         self.0.lock().lnprob = 0.0;
     }
 
-    pub fn size(&self) -> usize {
+    pub fn size(&self) -> u64 {
         self.0.lock().size
     }
 
@@ -81,8 +81,8 @@ mod tests {
     prop_compose! {
         fn arbitrary_map()(
             path in ".*",
-            offset in 0..usize::MAX,
-            length in 0..usize::MAX,
+            offset in 0..u64::MAX,
+            length in 0..u64::MAX,
         ) -> Map {
             Map::new(path, offset, length)
         }
@@ -98,10 +98,10 @@ mod tests {
     proptest! {
         #[test]
         fn exe_sums_map_sizes(exemaps in hash_set(arbitrary_exemap(), 0..2000)) {
-            let map_sizes: usize = exemaps
+            let map_sizes: u64 = exemaps
                 .iter()
                 .map(|m| m.map.length())
-                .fold(0usize, |acc, x| acc.wrapping_add(x));
+                .fold(0, |acc, x| acc.wrapping_add(x));
             let exe = Exe::new("foo").with_exemaps(exemaps);
             let exe_size = exe.size();
 
