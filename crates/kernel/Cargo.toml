@@ -21,5 +21,9 @@ tracing.workspace = true
 pretty_assertions = "1.4.1"
 proptest.workspace = true
 
+[features]
+default = []
+fiemap = []
+
 [lints]
 workspace = true

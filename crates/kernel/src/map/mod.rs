@@ -1,8 +1,12 @@
 mod inner;
 
+use crate::Error;
 use inner::MapInner;
 pub use inner::RuntimeStats;
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Map {
@@ -18,6 +22,10 @@ impl Map {
 
     pub fn lnprob(&self) -> f32 {
         self.inner.runtime.lock().lnprob
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.inner.path
     }
 
     pub fn seq(&self) -> u64 {
@@ -46,6 +54,10 @@ impl Map {
 
     pub fn set_lnprob(&self, lnprob: f32) {
         self.inner.runtime.lock().lnprob = lnprob;
+    }
+
+    pub fn set_block(&self) -> Result<(), Error> {
+        self.inner.set_block()
     }
 }
 

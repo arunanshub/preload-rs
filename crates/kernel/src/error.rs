@@ -8,4 +8,7 @@ pub enum Error {
 
     #[error("Procfs field does not exist: {0}")]
     ProcfsFieldDoesNotExist(String),
+
+    #[error("Failed to read file: {0}")]
+    FileReadFailed(#[from] std::io::Error),
 }
