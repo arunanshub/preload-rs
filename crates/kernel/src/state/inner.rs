@@ -3,13 +3,14 @@ use crate::{
     Error, Exe, ExeMap, Map, MemStat,
 };
 use config::{Config, Model, SortStrategy};
+use humansize::{format_size_i, DECIMAL};
 use itertools::Itertools;
 use libc::pid_t;
 use procfs::process::MMapPath;
 use rayon::prelude::*;
 use std::{
     cmp::Ordering,
-    collections::{BTreeSet, HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     mem,
     path::{Path, PathBuf},
 };
@@ -33,9 +34,7 @@ pub(crate) struct StateInner {
 
     map_seq: u64,
 
-    // TODO: decide whether BTreeSet is necessary because we are sorting it
-    // again as a vec.
-    maps: BTreeSet<Map>,
+    maps: HashSet<Map>,
 
     exe_seq: u64,
 
@@ -385,8 +384,9 @@ impl StateInner {
             trace!(
                 memavailtotal,
                 memallowed = memavailtotal - memavail,
-                "{memavailtotal} available for preloading, using {} of it.",
-                memavailtotal - memavail
+                "{} available for preloading, using {} of it.",
+                format_size_i(memavailtotal, DECIMAL),
+                format_size_i(memavailtotal - memavail, DECIMAL),
             );
 
             num_maps_readahead += 1;
