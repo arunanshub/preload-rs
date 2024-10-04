@@ -19,12 +19,12 @@ impl MemStat {
         let page_size = page_size();
         let pagein = vm_info
             .get("pgpgin")
-            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgin".into()))
-            .map(|val| val * page_size as i64 / 1024)?;
+            .map(|val| val * page_size as i64 / 1024)
+            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgin".into()))?;
         let pageout = vm_info
             .get("pgpgout")
-            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgout".into()))
-            .map(|val| val * page_size as i64 / 1024)?;
+            .map(|val| val * page_size as i64 / 1024)
+            .ok_or(Error::ProcfsFieldDoesNotExist("pgpgout".into()))?;
 
         Ok(Self {
             total: mem_info.mem_total,
