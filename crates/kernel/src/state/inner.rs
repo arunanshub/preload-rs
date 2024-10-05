@@ -379,15 +379,14 @@ impl StateInner {
             memavail -= map_length;
             if enabled!(Level::TRACE) {
                 trace!(lnprob = map.lnprob(), "lnprob of map");
+                trace!(
+                    memavailtotal,
+                    memallowed = memavailtotal - memavail,
+                    "{} available for preloading, using {} of it.",
+                    format_size_i(memavailtotal, DECIMAL),
+                    format_size_i(memavailtotal - memavail, DECIMAL),
+                );
             }
-
-            trace!(
-                memavailtotal,
-                memallowed = memavailtotal - memavail,
-                "{} available for preloading, using {} of it.",
-                format_size_i(memavailtotal, DECIMAL),
-                format_size_i(memavailtotal - memavail, DECIMAL),
-            );
 
             num_maps_readahead += 1;
             maps_to_readahead.push(map);
