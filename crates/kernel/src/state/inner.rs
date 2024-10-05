@@ -1,19 +1,23 @@
 use crate::{
-    utils::{accept_file, sanitize_file},
-    Error, Exe, ExeMap, Map,
+    utils::{accept_file, kb, readahead, sanitize_file},
+    Error, Exe, ExeMap, Map, MemStat,
 };
-use config::Config;
+use config::{Config, Model, SortStrategy};
+use humansize::{format_size_i, DECIMAL};
+use itertools::Itertools;
 use libc::pid_t;
 use procfs::process::MMapPath;
+use rayon::prelude::*;
 use std::{
-    collections::{BTreeSet, HashMap, HashSet, VecDeque},
+    cmp::Ordering,
+    collections::{HashMap, HashSet, VecDeque},
     mem,
     path::{Path, PathBuf},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
-use tracing::{debug, enabled, trace, warn, Level};
+use tracing::{debug, enabled, error, trace, warn, Level};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct StateInner {
     /// Configuration is created by the user and (probably) loaded from a file.
     pub(crate) config: Config,
@@ -30,7 +34,7 @@ pub(crate) struct StateInner {
 
     map_seq: u64,
 
-    maps: BTreeSet<Map>,
+    maps: HashSet<Map>,
 
     exe_seq: u64,
 
@@ -49,6 +53,8 @@ pub(crate) struct StateInner {
     sysinfo: System,
 
     system_refresh_kind: RefreshKind,
+
+    memstat_timestamp: u64,
 }
 
 impl StateInner {
@@ -68,22 +74,9 @@ impl StateInner {
 
         Self {
             config,
-            dirty: false,
-            model_dirty: false,
-            time: 0,
-            last_running_timestamp: 0,
-            last_accounting_timestamp: 0,
-            exe_seq: 0,
-            map_seq: 0,
-            maps: Default::default(),
-            state_changed_exes: Default::default(),
-            running_exes: Default::default(),
-            new_running_exes: Default::default(),
-            new_exes: Default::default(),
-            exes: Default::default(),
-            bad_exes: Default::default(),
             sysinfo,
             system_refresh_kind,
+            ..Default::default()
         }
     }
 
@@ -126,7 +119,7 @@ impl StateInner {
                 size += length;
 
                 if let Some(exemaps) = &mut exemaps {
-                    let mut map = Map::new(path, map.offset as usize, length as usize);
+                    let mut map = Map::new(path, map.offset, length);
                     if let Some(existing_map) = self.maps.get(&map) {
                         map = existing_map.clone();
                     }
@@ -298,11 +291,11 @@ impl StateInner {
 
         // do some accounting
         let period = self.time - self.last_accounting_timestamp;
-        for exe in self.exes.values_mut() {
+        self.exes.par_iter().for_each(|(_, exe)| {
             if exe.is_running(self.last_running_timestamp) {
                 exe.update_time(period);
             }
-        }
+        });
 
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(running_markov_inc_time), GINT_TO_POINTER(period));
 
@@ -316,28 +309,145 @@ impl StateInner {
     }
 
     #[tracing::instrument(skip(self))]
-    fn prophet_predict(&mut self) {
+    fn prophet_predict(&mut self) -> Result<(), Error> {
         // reset probabilities that we are going to compute
-        self.exes.values().for_each(|exe| exe.zero_lnprob());
-        self.maps.iter().for_each(|map| map.zero_lnprob());
+        self.exes.par_iter().for_each(|(_, exe)| exe.zero_lnprob());
+        self.maps.par_iter().for_each(|map| map.zero_lnprob());
 
         // TODO: preload_markov_foreach((GFunc)G_CALLBACK(markov_bid_in_exes), data);
 
         if enabled!(Level::TRACE) {
-            self.exes.values().for_each(|exe| {
+            self.exes.par_iter().for_each(|(_, exe)| {
                 trace!(lnprob=exe.lnprob(), path=?exe.path(), "lnprob of exes");
             });
         }
 
         // exes bid in maps
         self.exes
-            .values()
-            .for_each(|exe| exe.bid_in_maps(self.last_running_timestamp));
+            .par_iter()
+            .for_each(|(_, exe)| exe.bid_in_maps(self.last_running_timestamp));
 
         // may not be required if maps stored as BTreeMap
         // XXX: g_ptr_array_sort(state->maps_arr, (GCompareFunc)map_prob_compare);
 
-        // TODO: preload_prophet_readahead(state->maps_arr);
+        self.prophet_readahead()?;
+        Ok(())
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn prophet_readahead(&mut self) -> Result<(), Error> {
+        let memstat = MemStat::try_new()?;
+        let Model {
+            memtotal,
+            memcached,
+            memfree,
+            ..
+        } = self.config.model;
+
+        // amount of memory we are allowed to use for readahead
+        let mut memavail = {
+            let mut temp = memtotal.clamp(-100, 100) as i64 * (memstat.total / 100) as i64
+                + memfree.clamp(-100, 100) as i64 * (memstat.free / 100) as i64;
+            temp = temp.max(0);
+            temp += memcached.clamp(-100, 100) as i64 * (memstat.cached as i64 / 100);
+            temp
+        };
+        let memavailtotal = memavail;
+        self.memstat_timestamp = self.time;
+
+        // XXX: we only readahead a subset of all maps. Maybe find a better way
+        // to select maps to readahead without additional vec allocation.
+        let mut maps_to_readahead = vec![];
+        let mut num_maps_readahead = 0;
+
+        let mut maps_iter = self.maps.iter().sorted_by(|a, b| {
+            a.lnprob()
+                .partial_cmp(&b.lnprob())
+                .unwrap_or(Ordering::Equal)
+        });
+        // XXX: clean up the loop
+        while num_maps_readahead < maps_iter.len() {
+            let Some(map) = maps_iter.nth(num_maps_readahead) else {
+                error!("Map not found. Please report a bug!");
+                break;
+            };
+            let map_length = kb(map.length()) as i64;
+            if map.lnprob() < 0.0 && map_length <= memavail {
+                continue;
+            }
+
+            memavail -= map_length;
+            if enabled!(Level::TRACE) {
+                trace!(lnprob = map.lnprob(), "lnprob of map");
+                trace!(
+                    memavailtotal,
+                    memallowed = memavailtotal - memavail,
+                    "{} available for preloading, using {} of it.",
+                    format_size_i(memavailtotal, DECIMAL),
+                    format_size_i(memavailtotal - memavail, DECIMAL),
+                );
+            }
+
+            num_maps_readahead += 1;
+            maps_to_readahead.push(map);
+        }
+
+        if num_maps_readahead > 0 {
+            self.preload_readahead(&mut maps_to_readahead);
+            let num_maps = self.maps.len();
+            debug!(
+                num_maps_readahead,
+                num_maps, "Have {num_maps} maps, readahead {num_maps_readahead} maps."
+            );
+        } else {
+            debug!("Nothing to readahead.");
+        }
+
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn preload_readahead(&self, maps: &mut [&Map]) {
+        // sort files
+        if let Some(sort_strategy) = self.config.system.sortstrategy {
+            trace!("Sorting {} maps by {:?}.", maps.len(), sort_strategy);
+            match sort_strategy {
+                SortStrategy::Path => {
+                    maps.par_sort_by(|a, b| a.path().cmp(b.path()));
+                }
+                SortStrategy::Block | SortStrategy::Inode => {
+                    let need_block = maps.par_iter().any(|map| map.block().is_none());
+                    if need_block {
+                        trace!("Some maps don't have block.");
+                        // sorting by path to make stat fast
+                        maps.par_sort_by(|a, b| a.path().cmp(b.path()));
+                        // set block if using inode
+                        maps.par_iter()
+                            .filter_map(|map| match map.block() {
+                                Some(_) => None,
+                                None => Some(map),
+                            })
+                            .for_each(|map| {
+                                // TODO: strategy == Inode
+                                if let Err(err) = map.set_block() {
+                                    trace!(?err, "Failed to set block for map")
+                                }
+                            });
+                    }
+                    // sort by block
+                    maps.par_sort_by(|a, b| a.block().cmp(&b.block()));
+                }
+            }
+        }
+
+        maps.par_iter().for_each(|map| {
+            // TODO: if (path && offset <= files[i]->offset ...) {}
+            if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64) {
+                warn!(path=?map.path(), %error, "Failed to readahead");
+            } else {
+                trace!(?map, "Readahead done.");
+            }
+        });
     }
 
     #[tracing::instrument(skip_all)]
@@ -351,6 +461,7 @@ impl StateInner {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     fn dump_log(&self) {
         debug!(
             time = self.time,
@@ -375,7 +486,7 @@ impl StateInner {
             self.dump_log();
         }
         if self.config.system.dopredict {
-            self.prophet_predict();
+            self.prophet_predict()?;
         }
 
         self.time += self.config.model.cycle as u64 / 2;

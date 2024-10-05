@@ -1,8 +1,12 @@
 mod inner;
 
+use crate::Error;
 use inner::MapInner;
 pub use inner::RuntimeStats;
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Map {
@@ -10,7 +14,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(path: impl Into<PathBuf>, offset: usize, length: usize) -> Self {
+    pub fn new(path: impl Into<PathBuf>, offset: u64, length: u64) -> Self {
         Self {
             inner: Arc::new(MapInner::new(path, offset, length)),
         }
@@ -20,16 +24,24 @@ impl Map {
         self.inner.runtime.lock().lnprob
     }
 
+    pub fn path(&self) -> &Path {
+        &self.inner.path
+    }
+
     pub fn seq(&self) -> u64 {
         self.inner.runtime.lock().seq
     }
 
-    pub fn block(&self) -> u64 {
+    pub fn block(&self) -> Option<u64> {
         self.inner.runtime.lock().block
     }
 
-    pub fn length(&self) -> usize {
+    pub fn length(&self) -> u64 {
         self.inner.length
+    }
+
+    pub fn offset(&self) -> u64 {
+        self.inner.offset
     }
 
     pub fn set_seq(&self, seq: u64) {
@@ -47,6 +59,10 @@ impl Map {
     pub fn set_lnprob(&self, lnprob: f32) {
         self.inner.runtime.lock().lnprob = lnprob;
     }
+
+    pub fn set_block(&self) -> Result<(), Error> {
+        self.inner.set_block()
+    }
 }
 
 #[cfg(test)]
@@ -58,8 +74,8 @@ mod tests {
     prop_compose! {
         fn arbitrary_map()(
             path in ".*",
-            offset in 0..usize::MAX,
-            length in 0..usize::MAX,
+            offset in 0..u64::MAX,
+            length in 0..u64::MAX,
             lnprob: f32,
             seq in 0..u64::MAX,
         ) -> Map {

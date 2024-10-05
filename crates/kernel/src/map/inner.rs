@@ -1,6 +1,7 @@
+use crate::Error;
 use educe::Educe;
 use parking_lot::Mutex;
-use std::path::PathBuf;
+use std::{os::linux::fs::MetadataExt, path::PathBuf};
 
 /// Runtime statistics related to the map.
 #[derive(Debug, Default, Clone, Copy)]
@@ -12,7 +13,7 @@ pub struct RuntimeStats {
     pub seq: u64,
 
     /// On-disk location of the start of the map.
-    pub block: u64,
+    pub block: Option<u64>,
     // private: u64,
 }
 
@@ -23,10 +24,10 @@ pub struct MapInner {
     pub path: PathBuf,
 
     /// Offset of the mapped section in bytes.
-    pub offset: usize,
+    pub offset: u64,
 
     /// Length of the mapped section in bytes.
-    pub length: usize,
+    pub length: u64,
 
     /// Runtime statistics related to the map.
     #[educe(Eq(ignore), Ord(ignore), Hash(ignore))]
@@ -34,12 +35,26 @@ pub struct MapInner {
 }
 
 impl MapInner {
-    pub fn new(path: impl Into<PathBuf>, offset: usize, length: usize) -> Self {
+    pub fn new(path: impl Into<PathBuf>, offset: u64, length: u64) -> Self {
         Self {
             path: path.into(),
             length,
             offset,
             ..Default::default()
         }
+    }
+
+    /// For now the `use_inode` parameter does nothing.
+    pub fn set_block(&self) -> Result<(), Error> {
+        // in case we can get block, set 0 to not retry
+        self.runtime.lock().block = Some(0);
+        let meta = self.path.metadata()?;
+
+        #[cfg(feature = "fiemap")]
+        {
+            // TODO: if (!use_inode) { ... }
+        }
+        self.runtime.lock().block = Some(meta.st_ino());
+        Ok(())
     }
 }

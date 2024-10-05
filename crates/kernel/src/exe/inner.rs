@@ -2,6 +2,7 @@
 
 use crate::ExeMap;
 use educe::Educe;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{collections::HashSet, path::PathBuf};
 
 #[derive(Default, Clone, Educe)]
@@ -12,7 +13,7 @@ pub struct ExeInner {
     #[educe(Debug(ignore))]
     pub exemaps: HashSet<ExeMap>,
 
-    pub size: usize,
+    pub size: u64,
 
     pub seq: u64,
 
@@ -48,11 +49,11 @@ impl ExeInner {
 
     pub fn with_exemaps(&mut self, exemaps: HashSet<ExeMap>) -> &mut Self {
         self.exemaps = exemaps;
-        let size: usize = self
+        let size = self
             .exemaps
-            .iter()
+            .par_iter()
             .map(|map| map.map.length())
-            .fold(0usize, |acc, x| acc.wrapping_add(x));
+            .reduce(|| 0, |acc, x| acc.wrapping_add(x));
         self.size = self.size.wrapping_add(size);
         self
     }
@@ -67,10 +68,12 @@ impl ExeInner {
 
     pub fn bid_in_maps(&self, last_running_timestamp: u64) {
         if self.is_running(last_running_timestamp) {
-            self.exemaps.iter().for_each(|v| v.map.increase_lnprob(1.));
+            self.exemaps
+                .par_iter()
+                .for_each(|v| v.map.increase_lnprob(1.));
         } else {
             self.exemaps
-                .iter()
+                .par_iter()
                 .for_each(|v| v.map.set_lnprob(self.lnprob));
         }
     }
