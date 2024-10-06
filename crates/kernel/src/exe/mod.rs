@@ -14,6 +14,7 @@ impl Exe {
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self(Arc::new(Mutex::new(ExeInner::new(path))))
     }
+
     pub fn with_change_timestamp(self, change_timestamp: u64) -> Self {
         self.0.lock().with_change_timestamp(change_timestamp);
         self
