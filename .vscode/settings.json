@@ -1,3 +1,4 @@
 {
-    "dependi.rust.lockFileEnabled": true
+    "dependi.rust.lockFileEnabled": true,
+    "todo-tree.tree.scanMode": "workspace only"
 }
