@@ -2,17 +2,79 @@
 
 mod inner;
 
-use crate::ExeMap;
+use crate::{extract_exe, Error, ExeMap, Markov};
 use inner::ExeInner;
 use parking_lot::Mutex;
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::{Arc, Weak},
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct Exe(Arc<Mutex<ExeInner>>);
 
+#[derive(Debug, Default, Clone)]
+pub struct ExeForMarkov(pub(crate) Weak<Mutex<ExeInner>>);
+
 impl Exe {
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self(Arc::new(Mutex::new(ExeInner::new(path))))
+    }
+
+    fn for_markov(&self) -> ExeForMarkov {
+        ExeForMarkov(Arc::downgrade(&self.0))
+    }
+
+    pub fn build_markov_chain_with(
+        &self,
+        other_exe: &Exe,
+        state_time: u64,
+        last_running_timestamp: u64,
+    ) -> Result<Option<Markov>, Error> {
+        if self.path() == other_exe.path() {
+            return Ok(None);
+        }
+        let markov = Markov::new(self.for_markov(), other_exe.for_markov())
+            .with_initialize(state_time, last_running_timestamp)?;
+        Ok(Some(markov))
+    }
+
+    pub fn markov_state_changed(
+        &self,
+        state_time: u64,
+        last_running_timestamp: u64,
+    ) -> Result<(), Error> {
+        // extract the markovs from the exe because markov might lock the exe
+        // back this is to prevent a deadlock
+        let markovs = std::mem::take(&mut self.0.lock().markovs);
+        let res = markovs
+            .iter()
+            .try_for_each(|markov| markov.state_changed(state_time, last_running_timestamp));
+        self.0.lock().markovs = markovs;
+        res
+    }
+
+    pub fn increase_markov_time(&self, time: u64) -> Result<(), Error> {
+        // same as markov_state_changed. Take them out to prevent deadlock
+        let markovs = std::mem::take(&mut self.0.lock().markovs);
+        let path = self.path();
+        let res = markovs.iter().try_for_each(|markov| {
+            if extract_exe!(markov.0.lock().exe_a).path == path {
+                markov.increase_time(time);
+            }
+            Ok(())
+        });
+        self.0.lock().markovs = markovs;
+        res
+    }
+
+    pub fn change_timestamp(&self) -> u64 {
+        self.0.lock().change_timestamp
+    }
+
+    pub fn add_markov(&self, markov: Markov) {
+        self.0.lock().markovs.push(markov);
     }
 
     pub fn with_change_timestamp(self, change_timestamp: u64) -> Self {

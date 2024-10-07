@@ -14,4 +14,7 @@ pub enum Error {
 
     #[error("Failed to readahead: {0}")]
     ReadaheadFailed(#[from] nix::Error),
+
+    #[error("Exe associated with markov has been deallocated")]
+    ExeDoesNotExist,
 }

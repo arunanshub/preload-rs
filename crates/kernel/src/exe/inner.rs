@@ -1,6 +1,6 @@
 #![allow(clippy::mutable_key_type)]
 
-use crate::ExeMap;
+use crate::{ExeMap, Markov};
 use educe::Educe;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{collections::HashSet, path::PathBuf};
@@ -26,6 +26,8 @@ pub struct ExeInner {
     pub change_timestamp: u64,
 
     pub lnprob: f32,
+
+    pub markovs: Vec<Markov>,
 }
 
 impl ExeInner {

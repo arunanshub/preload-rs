@@ -223,7 +223,13 @@ impl StateInner {
         exe.set_seq(self.exe_seq);
         trace!(?exe, "registering exe");
         if create_markovs {
-            // TODO: g_hash_table_foreach(state->exes, (GHFunc)shift_preload_markov_new, exe);
+            self.exes.iter().for_each(|(_, other_exe)| {
+                let Ok(_) =
+                    exe.build_markov_chain_with(other_exe, self.time, self.last_running_timestamp)
+                else {
+                    unreachable!("Both exes are present which is enough to build the markov chain");
+                };
+            });
         }
         self.exes.insert(exe.path(), exe);
     }
@@ -266,10 +272,9 @@ impl StateInner {
         self.running_exes = mem::take(&mut self.new_running_exes);
     }
 
-    fn exe_changed_callback(&self, exe: &Exe) {
+    fn exe_changed_callback(&self, exe: &Exe) -> Result<(), Error> {
         exe.update_change_timestamp(self.time);
-        // TODO: g_set_foreach(exe->markovs, (GFunc)G_CALLBACK(preload_markov_state_changed), NULL);
-        // exe.markovs_state_changed(self.time);
+        exe.markov_state_changed(self.time, self.last_running_timestamp)
     }
 
     #[tracing::instrument(skip(self))]
@@ -285,9 +290,10 @@ impl StateInner {
         // adjust state for exes that changed state
         let state_changed_exes = mem::take(&mut self.state_changed_exes);
         trace!(num = state_changed_exes.len(), "Exes that changed state");
-        for exe in state_changed_exes {
-            self.exe_changed_callback(&exe);
-        }
+        state_changed_exes
+            .par_iter()
+            .try_for_each(|exe| self.exe_changed_callback(exe))?;
+        trace!("Exes state changed");
 
         // do some accounting
         let period = self.time - self.last_accounting_timestamp;
@@ -296,8 +302,12 @@ impl StateInner {
                 exe.update_time(period);
             }
         });
+        trace!("Exe time updated");
 
-        // TODO: preload_markov_foreach((GFunc)G_CALLBACK(running_markov_inc_time), GINT_TO_POINTER(period));
+        self.exes
+            .par_iter()
+            .try_for_each(|(_, exe)| exe.increase_markov_time(period))?;
+        trace!("Markov time updated");
 
         self.last_accounting_timestamp = self.time;
         Ok(())
