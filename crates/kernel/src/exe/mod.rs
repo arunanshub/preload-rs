@@ -40,6 +40,24 @@ impl Exe {
         Ok(Some(markov))
     }
 
+    pub fn markov_bid_in_exes(
+        &self,
+        use_correlation: bool,
+        state_time: u64,
+        cycle: f32,
+    ) -> Result<(), Error> {
+        let markovs = std::mem::take(&mut self.0.lock().markovs);
+        let path = self.path();
+        let res = markovs.iter().try_for_each(|markov| {
+            if extract_exe!(markov.0.lock().exe_a).path == path {
+                markov.bid_in_exes(use_correlation, state_time, cycle)?;
+            }
+            Ok(())
+        });
+        self.0.lock().markovs = markovs;
+        res
+    }
+
     pub fn markov_state_changed(
         &self,
         state_time: u64,

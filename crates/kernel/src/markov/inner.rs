@@ -97,6 +97,95 @@ impl MarkovInner {
 
         Ok(())
     }
+
+    pub fn bid_in_exes(
+        &mut self,
+        use_correlation: bool,
+        state_time: u64,
+        cycle: f32,
+    ) -> Result<(), Error> {
+        let state = self.state.bits() as usize;
+        if self.weight[state][state] == 0 {
+            return Ok(());
+        }
+
+        let correlation = if use_correlation {
+            self.correlation(state_time)?
+        } else {
+            1.0
+        };
+
+        if (self.state & MarkovState::ExeARunning) == MarkovState::NeitherRunning {
+            let exe = std::mem::take(&mut self.exe_a);
+            self.bid_for_exe(&exe, MarkovState::ExeARunning, correlation, cycle)?;
+            self.exe_a = exe;
+        }
+        if (self.state & MarkovState::ExeBRunning) == MarkovState::NeitherRunning {
+            let exe = std::mem::take(&mut self.exe_b);
+            self.bid_for_exe(&exe, MarkovState::ExeBRunning, correlation, cycle)?;
+            self.exe_b = exe;
+        }
+        Ok(())
+    }
+
+    fn bid_for_exe(
+        &mut self,
+        exe: &ExeForMarkov,
+        ystate: MarkovState,
+        correlation: f32,
+        cycle: f32,
+    ) -> Result<(), Error> {
+        let state = self.state;
+        let state_ix = state.bits() as usize;
+        let ystate_ix = ystate.bits() as usize;
+
+        if self.weight[state_ix][state_ix] == 0 || self.time_to_leave[state_ix] <= 1.0 {
+            return Ok(());
+        }
+
+        // p_state_change is the probability of the state of markov changing in
+        // the next period. period is taken as 1.5 cycles. it's computed as:
+        //                                            -λ.period
+        //   p(state changes in time < period) = 1 - e
+        //
+        // where λ is one over average time to leave the state.
+        let p_state_change = {
+            let temp = cycle * 1.5 / self.time_to_leave[state_ix];
+            1.0 - temp.exp()
+        };
+
+        // p_y_runs_next is the probability that X runs, given that a state
+        // change occurs. it's computed linearly based on the number of times
+        // transition has occured from this state to other states.
+        //
+        // regularize a bit by adding something to denominator
+        let p_y_runs_next = {
+            let temp = self.weight[state_ix][ystate_ix] as f32 + self.weight[state_ix][3] as f32;
+            temp / self.weight[state_ix][state_ix] as f32 + 0.01
+        };
+
+        // FIXME: (from original impl.) what should we do we correlation w.r.t. state?
+        let p_runs = correlation.abs() * p_state_change * p_y_runs_next;
+        extract_exe!(exe).lnprob += (1.0 - p_runs).ln();
+        Ok(())
+    }
+
+    fn correlation(&self, state_time: u64) -> Result<f32, Error> {
+        let t = state_time;
+        let a = extract_exe!(self.exe_a).time;
+        let b = extract_exe!(self.exe_b).time;
+        let ab = self.time;
+
+        let correlation = if a == 0 || a == t || b == 0 || b == t {
+            0.0
+        } else {
+            let numerator = (t * ab - a * b) as f32;
+            let denominator2 = (a * b * (t - a) * (t - b)) as f32;
+            numerator / denominator2.sqrt()
+        };
+
+        Ok(correlation)
+    }
 }
 
 const fn get_markov_state(is_exe_a_running: bool, is_exe_b_running: bool) -> MarkovState {

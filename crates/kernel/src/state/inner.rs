@@ -324,7 +324,14 @@ impl StateInner {
         self.exes.par_iter().for_each(|(_, exe)| exe.zero_lnprob());
         self.maps.par_iter().for_each(|map| map.zero_lnprob());
 
-        // TODO: preload_markov_foreach((GFunc)G_CALLBACK(markov_bid_in_exes), data);
+        self.exes.par_iter().try_for_each(|(_, exe)| {
+            exe.markov_bid_in_exes(
+                self.config.model.usecorrelation,
+                self.time,
+                self.config.model.cycle as f32,
+            )
+        })?;
+        trace!("Markov is done bidding in exes");
 
         if enabled!(Level::TRACE) {
             self.exes.par_iter().for_each(|(_, exe)| {
@@ -481,7 +488,7 @@ impl StateInner {
             num_bad_exes = self.bad_exes.len(),
             num_maps = self.maps.len(),
             num_running_exes = self.running_exes.len(),
-            "Dump log:"
+            "Dump log:",
         )
     }
 

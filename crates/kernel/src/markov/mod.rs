@@ -42,4 +42,15 @@ impl Markov {
             markov.time += time;
         }
     }
+
+    pub fn bid_in_exes(
+        &self,
+        use_correlation: bool,
+        state_time: u64,
+        cycle: f32,
+    ) -> Result<(), Error> {
+        self.0
+            .lock()
+            .bid_in_exes(use_correlation, state_time, cycle)
+    }
 }
