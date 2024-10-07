@@ -54,3 +54,46 @@ impl Markov {
             .bid_in_exes(use_correlation, state_time, cycle)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::panic;
+
+    use super::Markov;
+    use crate::{Error, Exe};
+
+    #[test]
+    fn build_markov_with_two_exes() {
+        let exe_a = Exe::new("foo");
+        let exe_b = Exe::new("bar");
+
+        exe_a
+            .build_markov_chain_with(&exe_b, 1, 1)
+            .unwrap()
+            .unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn cannot_build_markov_with_same_exe() {
+        let exe_a = Exe::new("foo");
+        exe_a
+            .build_markov_chain_with(&exe_a, 1, 1)
+            .unwrap()
+            .unwrap();
+    }
+
+    #[test]
+    fn cannot_build_markov_if_exe_dropped() {
+        let exe_a = Exe::new("foo");
+        let exe_b = Exe::new("bar");
+
+        let markov = Markov::new(exe_a.for_markov(), exe_b.for_markov());
+        drop(exe_a);
+        if let Err(err) = markov.with_initialize(1, 1) {
+            assert!(matches!(err, Error::ExeDoesNotExist));
+        } else {
+            panic!()
+        };
+    }
+}

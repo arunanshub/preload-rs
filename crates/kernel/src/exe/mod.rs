@@ -22,7 +22,7 @@ impl Exe {
         Self(Arc::new(Mutex::new(ExeInner::new(path))))
     }
 
-    fn for_markov(&self) -> ExeForMarkov {
+    pub(crate) fn for_markov(&self) -> ExeForMarkov {
         ExeForMarkov(Arc::downgrade(&self.0))
     }
 
