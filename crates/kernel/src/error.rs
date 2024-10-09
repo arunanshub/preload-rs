@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to load config: {0}")]
@@ -17,4 +19,10 @@ pub enum Error {
 
     #[error("Exe associated with markov has been deallocated")]
     ExeDoesNotExist,
+
+    #[error("Path is invalid: {0}")]
+    InvalidPath(PathBuf),
+
+    #[error("Database error: {0}")]
+    DatabaseError(#[from] sqlx::Error),
 }

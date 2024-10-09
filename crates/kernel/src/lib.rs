@@ -1,3 +1,4 @@
+pub mod database;
 mod error;
 mod exe;
 mod exemap;
