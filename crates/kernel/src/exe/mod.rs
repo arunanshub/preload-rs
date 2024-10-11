@@ -162,10 +162,11 @@ mod tests {
     prop_compose! {
         fn arbitrary_map()(
             path in ".*",
-            offset in 0..u64::MAX,
-            length in 0..u64::MAX,
+            offset in 0..=u64::MAX,
+            length in 0..=u64::MAX,
+            update_time in 0..=u64::MAX,
         ) -> Map {
-            Map::new(path, offset, length)
+            Map::new(path, offset, length, update_time)
         }
     }
 

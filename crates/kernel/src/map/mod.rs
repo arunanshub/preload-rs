@@ -1,3 +1,4 @@
+mod database;
 mod inner;
 
 use crate::Error;
@@ -14,9 +15,9 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(path: impl Into<PathBuf>, offset: u64, length: u64) -> Self {
+    pub fn new(path: impl Into<PathBuf>, offset: u64, length: u64, update_time: u64) -> Self {
         Self {
-            inner: Arc::new(MapInner::new(path, offset, length)),
+            inner: Arc::new(MapInner::new(path, offset, length, update_time)),
         }
     }
 
@@ -30,6 +31,10 @@ impl Map {
 
     pub fn seq(&self) -> u64 {
         self.inner.runtime.lock().seq
+    }
+
+    pub fn update_time(&self) -> u64 {
+        self.inner.update_time
     }
 
     pub fn block(&self) -> Option<u64> {
@@ -74,12 +79,13 @@ mod tests {
     prop_compose! {
         fn arbitrary_map()(
             path in ".*",
-            offset in 0..u64::MAX,
-            length in 0..u64::MAX,
+            offset in 0..=u64::MAX,
+            length in 0..=u64::MAX,
+            update_time in 0..=u64::MAX,
             lnprob: f32,
-            seq in 0..u64::MAX,
+            seq in 0..=u64::MAX,
         ) -> Map {
-            let map = Map::new(path, offset, length);
+            let map = Map::new(path, offset, length, update_time);
             map.set_lnprob(lnprob);
             map.set_seq(seq);
             map

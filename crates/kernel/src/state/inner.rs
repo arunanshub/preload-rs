@@ -119,7 +119,7 @@ impl StateInner {
                 size += length;
 
                 if let Some(exemaps) = &mut exemaps {
-                    let mut map = Map::new(path, map.offset, length);
+                    let mut map = Map::new(path, map.offset, length, self.time);
                     if let Some(existing_map) = self.maps.get(&map) {
                         map = existing_map.clone();
                     }
