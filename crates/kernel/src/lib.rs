@@ -8,6 +8,7 @@ mod memstat;
 mod state;
 pub mod utils;
 
+pub use database::MIGRATOR;
 pub use error::Error;
 pub use exe::Exe;
 pub use exemap::ExeMap;

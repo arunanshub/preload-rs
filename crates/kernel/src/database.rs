@@ -5,12 +5,15 @@ use sqlx::{
 };
 use std::{path::Path, str::FromStr};
 
+/// An instance of SQLx migrator.
+pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
+
 #[async_trait::async_trait]
 pub trait DatabaseWriteExt {
     type Error;
 
-    /// Write the data to the database.
-    async fn write(&self, pool: &SqlitePool) -> Result<(), Self::Error>;
+    /// Write the data to the database and returns the number of rows affected.
+    async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error>;
 }
 
 /// Try to create a database connection pool. If the database at the specified
