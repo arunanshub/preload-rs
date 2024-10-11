@@ -5,6 +5,14 @@ use sqlx::{
 };
 use std::{path::Path, str::FromStr};
 
+#[async_trait::async_trait]
+pub trait DatabaseWriteExt {
+    type Error;
+
+    /// Write the data to the database.
+    async fn write(&self, pool: &SqlitePool) -> Result<(), Self::Error>;
+}
+
 /// Try to create a database connection pool. If the database at the specified
 /// path does not exist, it is created.
 ///
