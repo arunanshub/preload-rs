@@ -432,15 +432,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "db"
-version = "0.1.0"
-dependencies = [
- "proptest",
- "thiserror",
- "tracing",
-]
-
-[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1197,7 +1188,6 @@ dependencies = [
  "clap",
  "clap-verbosity-flag",
  "config",
- "db",
  "flume",
  "kernel",
  "proptest",

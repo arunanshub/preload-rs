@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 # inter-crate
 config = { version = "0.1.0", path = "../config" }
-db = { version = "0.1.0", path = "../db" }
 kernel = { version = "0.1.0", path = "../kernel" }
 # workspace dependencies
 thiserror.workspace = true
