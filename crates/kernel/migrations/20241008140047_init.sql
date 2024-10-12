@@ -20,7 +20,18 @@ CREATE TABLE exes (
     update_time INTEGER,
     time INTEGER NOT NULL,
     path TEXT NOT NULL
-)
+);
+
+CREATE TABLE markovs (
+    exe_a INTEGER UNIQUE,
+    exe_b INTEGER UNIQUE,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (exe_a, exe_b),
+    CHECK (exe_a != exe_b) -- exe cannot build a markov chain with itself
+    FOREIGN KEY (exe_a) REFERENCES exes (id),
+    FOREIGN KEY (exe_b) REFERENCES exes (id)
+);
+
 -- CREATE TABLE markovs (
 --     id INTEGER PRIMARY KEY AUTOINCREMENT,
 --     exe_a INTEGER NOT NULL,
@@ -28,7 +39,6 @@ CREATE TABLE exes (
 --     time TIMESTAMP NOT NULL,
 --     time_to_leave BLOB NOT NULL, -- serialize as `msgpack`
 --     weight BLOB NOT NULL         -- serialize as `msgpack`
-
 --     PRIMARY KEY (exe_a, exe_b),
 --     CHECK (exe_a != exe_b) -- exe cannot build a markov chain with itself
 -- );
