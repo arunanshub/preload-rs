@@ -1,5 +1,6 @@
 #![allow(clippy::mutable_key_type)]
 
+mod database;
 mod inner;
 
 use crate::{extract_exe, Error, ExeMap, Markov};

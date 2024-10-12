@@ -14,6 +14,13 @@ CREATE TABLE exemaps (
     prob REAL NOT NULL,
     FOREIGN KEY (map_id) REFERENCES maps (id)
 );
+
+CREATE TABLE exes (
+    id INTEGER PRIMARY KEY,
+    update_time INTEGER,
+    time INTEGER NOT NULL,
+    path TEXT NOT NULL
+)
 -- CREATE TABLE markovs (
 --     id INTEGER PRIMARY KEY AUTOINCREMENT,
 --     exe_a INTEGER NOT NULL,
