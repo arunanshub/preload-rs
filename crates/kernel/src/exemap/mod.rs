@@ -1,3 +1,5 @@
+mod database;
+
 use crate::Map;
 use educe::Educe;
 
