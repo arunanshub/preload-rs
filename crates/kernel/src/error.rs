@@ -25,4 +25,7 @@ pub enum Error {
 
     #[error("Database error: {0}")]
     DatabaseError(#[from] sqlx::Error),
+
+    #[error("Failed to serialize to bincode: {0}")]
+    BincodeSerializeFailed(#[from] bincode::Error),
 }

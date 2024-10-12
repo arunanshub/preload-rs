@@ -1,5 +1,6 @@
 use super::Markov;
 use crate::{database::DatabaseWriteExt, extract_exe, Error};
+use bincode::serialize;
 use sqlx::SqlitePool;
 
 #[async_trait::async_trait]
@@ -9,17 +10,23 @@ impl DatabaseWriteExt for Markov {
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
         let exe_a_seq = extract_exe!(self.0.lock().exe_a).seq as i64;
         let exe_b_seq = extract_exe!(self.0.lock().exe_b).seq as i64;
+        let ttl = serialize(&self.0.lock().time_to_leave)?;
+        let weight = serialize(&self.0.lock().weight)?;
         let time = self.0.lock().time as i64;
 
         let mut tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
             r#"
-            INSERT INTO markovs (exe_a, exe_b, time)
-            VALUES (?, ?, ?)
+            INSERT INTO markovs
+                (exe_a, exe_b, time, time_to_leave, weight)
+            VALUES
+                (?, ?, ?, ?, ?)
             "#,
             exe_a_seq,
             exe_b_seq,
-            time
+            time,
+            ttl,
+            weight,
         )
         .execute(&mut *tx)
         .await?
