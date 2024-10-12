@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 #[async_trait::async_trait]
 impl DatabaseWriteExt for Exe {
     type Error = Error;
+
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
         let mut tx = pool.begin().await?;
 
@@ -33,6 +34,8 @@ impl DatabaseWriteExt for Exe {
         .execute(&mut *tx)
         .await?
         .rows_affected();
+
+        tx.commit().await?;
 
         Ok(rows_affected)
     }

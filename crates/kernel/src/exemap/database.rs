@@ -8,6 +8,8 @@ impl DatabaseWriteExt for ExeMap {
 
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
         let map_id = self.map.seq() as i64;
+
+        let tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
             r#"
             INSERT INTO exemaps (map_id, prob)
@@ -19,6 +21,7 @@ impl DatabaseWriteExt for ExeMap {
         .execute(pool)
         .await?
         .rows_affected();
+        tx.commit().await?;
         Ok(rows_affected)
     }
 }
