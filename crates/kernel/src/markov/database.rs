@@ -8,11 +8,19 @@ impl DatabaseWriteExt for Markov {
     type Error = Error;
 
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
-        let exe_a_seq = extract_exe!(self.0.lock().exe_a).seq as i64;
-        let exe_b_seq = extract_exe!(self.0.lock().exe_b).seq as i64;
-        let ttl = serialize(&self.0.lock().time_to_leave)?;
-        let weight = serialize(&self.0.lock().weight)?;
-        let time = self.0.lock().time as i64;
+        let exe_a_seq;
+        let exe_b_seq;
+        let ttl;
+        let weight;
+        let time;
+        {
+            let markov = self.0.lock();
+            exe_a_seq = extract_exe!(markov.exe_a).seq as i64;
+            exe_b_seq = extract_exe!(markov.exe_b).seq as i64;
+            ttl = serialize(&markov.time_to_leave)?;
+            weight = serialize(&markov.weight)?;
+            time = markov.time as i64;
+        }
 
         let mut tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
@@ -31,7 +39,6 @@ impl DatabaseWriteExt for Markov {
         .execute(&mut *tx)
         .await?
         .rows_affected();
-
         tx.commit().await?;
 
         Ok(rows_affected)

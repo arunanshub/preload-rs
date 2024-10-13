@@ -8,18 +8,26 @@ impl DatabaseWriteExt for Exe {
     type Error = Error;
 
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
-        let mut tx = pool.begin().await?;
+        let path;
+        let seq;
+        let update_time;
+        let time;
 
-        let path = {
-            let temp = self.path();
-            temp.to_str()
-                .ok_or_else(|| Error::InvalidPath(temp.to_path_buf()))?
-                .to_owned()
+        // cannot lock across await so we need to extract the values first
+        {
+            let exe = self.0.lock();
+
+            path = exe
+                .path
+                .to_str()
+                .ok_or_else(|| Error::InvalidPath(exe.path.clone()))?
+                .to_owned();
+            seq = exe.seq as i64;
+            update_time = exe.update_time.map(|v| v as i64);
+            time = exe.time as i64;
         };
-        let seq = self.0.lock().seq as i64;
-        let update_time = self.0.lock().update_time.map(|t| t as i64);
-        let time = self.0.lock().time as i64;
 
+        let mut tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
             r#"
             INSERT INTO exes
@@ -35,7 +43,6 @@ impl DatabaseWriteExt for Exe {
         .execute(&mut *tx)
         .await?
         .rows_affected();
-
         tx.commit().await?;
 
         Ok(rows_affected)
