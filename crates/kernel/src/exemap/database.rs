@@ -8,13 +8,15 @@ impl DatabaseWriteExt for ExeMap {
 
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
         let map_id = self.map.seq() as i64;
+        let exe_id = self.exe_seq as i64;
 
         let tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
             r#"
-            INSERT INTO exemaps (map_id, prob)
-            VALUES (?, ?)
+            INSERT INTO exemaps (exe_id, map_id, prob)
+            VALUES (?, ?, ?)
             "#,
+            exe_id,
             map_id,
             self.prob
         )
@@ -29,13 +31,18 @@ impl DatabaseWriteExt for ExeMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Map;
+    use crate::{Exe, Map};
 
     #[sqlx::test]
     fn write_exemap(pool: SqlitePool) {
         let map = Map::new("ab/c", 1, 2, 3);
         map.write(&pool).await.unwrap();
-        let mut exemap = ExeMap::new(map.clone());
+        let exe = Exe::new("foo/bar");
+        exe.set_seq(1);
+        exe.write(&pool).await.unwrap();
+
+        let exemap = ExeMap::new(map.clone());
+        let mut exemap = exemap.with_exe_seq(exe.seq());
         exemap.prob = 2.3;
         exemap.write(&pool).await.unwrap();
     }

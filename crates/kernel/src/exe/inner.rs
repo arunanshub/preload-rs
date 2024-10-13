@@ -2,7 +2,7 @@
 
 use crate::{ExeMap, Markov};
 use educe::Educe;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{collections::HashSet, path::PathBuf};
 
 #[derive(Default, Clone, Educe)]
@@ -50,7 +50,15 @@ impl ExeInner {
     }
 
     pub fn with_exemaps(&mut self, exemaps: HashSet<ExeMap>) -> &mut Self {
-        self.exemaps = exemaps;
+        // NOTE: why are we doing this? This is because, during the `write to
+        // the db` phase, exemap needs to know the exe_seq that it is related
+        // to. Ideally we could have given exemap a weakref to exe, but that
+        // would have made the code more complex. Maybe that's a todo for some
+        // other time.
+        self.exemaps = exemaps
+            .into_par_iter()
+            .map(|v| v.with_exe_seq(self.seq))
+            .collect();
         let size = self
             .exemaps
             .par_iter()
