@@ -13,7 +13,7 @@ use std::{
 };
 
 #[derive(Debug, Default, Clone)]
-pub struct Exe(Arc<Mutex<ExeInner>>);
+pub struct Exe(pub(crate) Arc<Mutex<ExeInner>>);
 
 #[derive(Debug, Default, Clone)]
 pub struct ExeForMarkov(pub(crate) Weak<Mutex<ExeInner>>);
@@ -21,6 +21,14 @@ pub struct ExeForMarkov(pub(crate) Weak<Mutex<ExeInner>>);
 impl Exe {
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self(Arc::new(Mutex::new(ExeInner::new(path))))
+    }
+
+    /// Sequence number of the Exe assigned by [`State`](crate::State) during
+    /// runtime.
+    ///
+    /// By default it is zero.
+    pub fn seq(&self) -> u64 {
+        self.0.lock().seq
     }
 
     pub(crate) fn for_markov(&self) -> ExeForMarkov {
@@ -143,6 +151,9 @@ impl Exe {
         self.0.lock().time = time;
     }
 
+    /// Set the sequence number of the Exe.
+    ///
+    /// This is called by [`State`](crate::State) during runtime.
     pub fn set_seq(&self, seq: u64) {
         self.0.lock().seq = seq;
     }
