@@ -9,10 +9,12 @@ CREATE TABLE maps (
 );
 
 CREATE TABLE exemaps (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exe_id INTEGER NOT NULL,
     map_id INTEGER NOT NULL,
     prob REAL NOT NULL,
-    FOREIGN KEY (map_id) REFERENCES maps (id)
+    FOREIGN KEY (map_id) REFERENCES maps (id),
+    FOREIGN KEY (exe_id) REFERENCES exes (id),
+    PRIMARY KEY (exe_id, map_id)
 );
 
 CREATE TABLE exes (
