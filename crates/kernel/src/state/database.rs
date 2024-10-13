@@ -26,12 +26,31 @@ impl DatabaseWriteExt for StateInner {
 
         trace!("Writing exes");
         for exe in self.exes.values() {
-            let exe = exe.clone();
-            let pool = pool.clone();
-            js.spawn(async move { exe.write(&pool).await });
+            let exe_path = exe.path();
+
+            // write exe first before anything else: markovs and exemaps
+            // depend on the exe id/seq.
+            {
+                let exe = exe.clone();
+                let pool = pool.clone();
+                js.spawn(async move { exe.write(&pool).await });
+            }
+
+            trace!(path = ?exe_path, "writing exemaps belonging to exe");
+            for exemap in &exe.0.lock().exemaps {
+                let exemap = exemap.clone();
+                let pool = pool.clone();
+                js.spawn(async move { exemap.write(&pool).await });
+            }
+
+            trace!(path = ?exe_path, "writing markovs belonging to exe");
+            for markov in &exe.0.lock().markovs {
+                let markov = markov.clone();
+                let pool = pool.clone();
+                js.spawn(async move { markov.write(&pool).await });
+            }
         }
 
-        // TODO: exemaps
         while let Some(res) = js.join_next().await {
             res??;
         }
