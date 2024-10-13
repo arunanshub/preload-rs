@@ -30,31 +30,31 @@ pub(crate) struct StateInner {
 
     pub(crate) last_running_timestamp: u64,
 
-    last_accounting_timestamp: u64,
+    pub(crate) last_accounting_timestamp: u64,
 
-    map_seq: u64,
+    pub(crate) map_seq: u64,
 
-    maps: HashSet<Map>,
+    pub(crate) maps: HashSet<Map>,
 
-    exe_seq: u64,
+    pub(crate) exe_seq: u64,
 
-    state_changed_exes: VecDeque<Exe>,
+    pub(crate) state_changed_exes: VecDeque<Exe>,
 
-    running_exes: VecDeque<Exe>,
+    pub(crate) running_exes: VecDeque<Exe>,
 
-    new_running_exes: VecDeque<Exe>,
+    pub(crate) new_running_exes: VecDeque<Exe>,
 
-    new_exes: HashMap<PathBuf, pid_t>,
+    pub(crate) new_exes: HashMap<PathBuf, pid_t>,
 
-    exes: HashMap<PathBuf, Exe>,
+    pub(crate) exes: HashMap<PathBuf, Exe>,
     /// Exes that are too small to be considered. Value is the size of the exe maps.
-    bad_exes: HashMap<PathBuf, u64>,
+    pub(crate) bad_exes: HashMap<PathBuf, u64>,
 
-    sysinfo: System,
+    pub(crate) sysinfo: System,
 
-    system_refresh_kind: RefreshKind,
+    pub(crate) system_refresh_kind: RefreshKind,
 
-    memstat_timestamp: u64,
+    pub(crate) memstat_timestamp: u64,
 }
 
 impl StateInner {

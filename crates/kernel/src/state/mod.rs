@@ -1,3 +1,4 @@
+mod database;
 mod inner;
 
 use crate::Error;

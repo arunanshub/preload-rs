@@ -22,6 +22,12 @@ CREATE TABLE exes (
     path TEXT NOT NULL
 );
 
+CREATE TABLE badexes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    update_time INTEGER NOT NULL,
+    path TEXT NOT NULL
+);
+
 CREATE TABLE markovs (
     exe_a INTEGER UNIQUE,
     exe_b INTEGER UNIQUE,

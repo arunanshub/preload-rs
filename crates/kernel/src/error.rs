@@ -28,4 +28,7 @@ pub enum Error {
 
     #[error("Failed to serialize to bincode: {0}")]
     BincodeSerializeFailed(#[from] bincode::Error),
+
+    #[error("Failed to join async tasks: {0}")]
+    JoinError(#[from] tokio::task::JoinError),
 }
