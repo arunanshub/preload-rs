@@ -23,7 +23,12 @@ impl DatabaseWriteExt for Map {
             INSERT INTO maps
                 (id, update_time, offset, length, path)
             VALUES
-                (?, ?, ?, ?, ?);
+                (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                update_time = excluded.update_time,
+                offset = excluded.offset,
+                length = excluded.length,
+                path = excluded.path
         ",
             seq,
             update_time,

@@ -29,6 +29,10 @@ impl DatabaseWriteExt for Markov {
                 (exe_a, exe_b, time, time_to_leave, weight)
             VALUES
                 (?, ?, ?, ?, ?)
+            ON CONFLICT(exe_a, exe_b) DO UPDATE SET
+                time = excluded.time,
+                time_to_leave = excluded.time_to_leave,
+                weight = excluded.weight
             "#,
             exe_a_seq,
             exe_b_seq,

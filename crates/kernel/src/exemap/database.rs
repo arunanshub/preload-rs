@@ -13,8 +13,12 @@ impl DatabaseWriteExt for ExeMap {
         let tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
             r#"
-            INSERT INTO exemaps (exe_id, map_id, prob)
-            VALUES (?, ?, ?)
+            INSERT INTO exemaps
+                (exe_id, map_id, prob)
+            VALUES
+                (?, ?, ?)
+            ON CONFLICT(exe_id, map_id) DO UPDATE SET
+                prob = excluded.prob
             "#,
             exe_id,
             map_id,

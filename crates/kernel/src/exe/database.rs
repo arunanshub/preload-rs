@@ -34,6 +34,10 @@ impl DatabaseWriteExt for Exe {
                 (id, path, update_time, time)
             VALUES
                 (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                path = excluded.path,
+                update_time = excluded.update_time,
+                time = excluded.time
             "#,
             seq,
             path,
