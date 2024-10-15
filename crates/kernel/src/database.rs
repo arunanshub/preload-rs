@@ -1,6 +1,6 @@
 use crate::Error;
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
     SqlitePool,
 };
 use std::{path::Path, str::FromStr};
@@ -64,7 +64,11 @@ where
         "sqlite::memory:"
     };
     let pool = SqlitePoolOptions::new()
-        .connect_with(SqliteConnectOptions::from_str(path)?.create_if_missing(true))
+        .connect_with(
+            SqliteConnectOptions::from_str(path)?
+                .create_if_missing(true)
+                .journal_mode(SqliteJournalMode::Wal),
+        )
         .await?;
     Ok(pool)
 }
