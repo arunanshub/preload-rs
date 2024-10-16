@@ -1,6 +1,6 @@
 use crate::Error;
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous},
     SqlitePool,
 };
 use std::{path::Path, str::FromStr};
@@ -63,10 +63,14 @@ where
     } else {
         "sqlite::memory:"
     };
+
+    // see https://developer.android.com/topic/performance/sqlite-performance-best-practices for
+    // more information on sqlite optimization
     let pool = SqlitePoolOptions::new()
         .connect_with(
             SqliteConnectOptions::from_str(path)?
                 .create_if_missing(true)
+                .synchronous(SqliteSynchronous::Normal)
                 .journal_mode(SqliteJournalMode::Wal),
         )
         .await?;
