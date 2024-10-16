@@ -1,12 +1,11 @@
 -- Add migration script here
--- Holds our metadata information. Any value must be inserted only once.
 CREATE TABLE maps (
     id INTEGER PRIMARY KEY,
     update_time INTEGER NOT NULL,
     offset INTEGER NOT NULL,
     length INTEGER NOT NULL,
     path TEXT NOT NULL
-);
+) STRICT;
 
 CREATE TABLE exemaps (
     exe_id INTEGER NOT NULL,
@@ -15,20 +14,20 @@ CREATE TABLE exemaps (
     FOREIGN KEY (map_id) REFERENCES maps (id),
     FOREIGN KEY (exe_id) REFERENCES exes (id),
     PRIMARY KEY (exe_id, map_id)
-);
+) STRICT;
 
 CREATE TABLE exes (
     id INTEGER PRIMARY KEY,
     update_time INTEGER,
     time INTEGER NOT NULL,
     path TEXT NOT NULL
-);
+) STRICT;
 
 CREATE TABLE badexes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     update_time INTEGER NOT NULL,
     path TEXT NOT NULL
-);
+) STRICT;
 
 CREATE TABLE markovs (
     exe_a INTEGER UNIQUE,
@@ -43,4 +42,4 @@ CREATE TABLE markovs (
     CHECK (exe_a != exe_b),
     FOREIGN KEY (exe_a) REFERENCES exes (id),
     FOREIGN KEY (exe_b) REFERENCES exes (id)
-);
+) STRICT;
