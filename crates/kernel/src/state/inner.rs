@@ -208,10 +208,11 @@ impl StateInner {
             unreachable!("exemaps should be Some because we explicitly asked for it");
         };
 
-        let exe = Exe::new(path)
-            .with_running(self.last_running_timestamp)
-            .with_exemaps(exemaps);
+        let exe = Exe::new(path).with_running(self.last_running_timestamp);
         self.register_exe(exe.clone(), true);
+        // NOTE: we can only register the exemaps after we have been assigned an
+        // exe_seq
+        let exe = exe.with_exemaps(exemaps);
         self.running_exes.push_front(exe);
 
         Ok(())
