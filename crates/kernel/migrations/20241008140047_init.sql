@@ -30,8 +30,8 @@ CREATE TABLE badexes (
 ) STRICT;
 
 CREATE TABLE markovs (
-    exe_a INTEGER UNIQUE,
-    exe_b INTEGER UNIQUE,
+    exe_a INTEGER NOT NULL,
+    exe_b INTEGER NOT NULL,
     time INTEGER NOT NULL,
     -- serialize as `bincode`
     time_to_leave BLOB NOT NULL,
