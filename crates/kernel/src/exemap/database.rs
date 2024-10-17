@@ -10,7 +10,7 @@ impl DatabaseWriteExt for ExeMap {
         let map_id = self.map.seq() as i64;
         let exe_id = self.exe_seq as i64;
 
-        let tx = pool.begin().await?;
+        let mut tx = pool.begin().await?;
         let rows_affected = sqlx::query!(
             r#"
             INSERT INTO exemaps
@@ -24,7 +24,7 @@ impl DatabaseWriteExt for ExeMap {
             map_id,
             self.prob
         )
-        .execute(pool)
+        .execute(&mut *tx)
         .await?
         .rows_affected();
         tx.commit().await?;
