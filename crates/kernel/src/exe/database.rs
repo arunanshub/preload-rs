@@ -22,7 +22,10 @@ impl DatabaseWriteExt for Exe {
                 .to_str()
                 .ok_or_else(|| Error::InvalidPath(exe.path.clone()))?
                 .to_owned();
-            seq = exe.seq as i64;
+            seq = exe
+                .seq
+                .ok_or_else(|| Error::ExeSeqNotAssigned(exe.path.clone()))?
+                as i64;
             update_time = exe.update_time.map(|v| v as i64);
             time = exe.time as i64;
         };
@@ -90,6 +93,7 @@ mod tests {
     #[sqlx::test]
     async fn write_exe(pool: SqlitePool) {
         let exe = Exe::new("a/b/c").with_change_timestamp(2).with_running(3);
+        exe.set_seq(1);
         let rows = exe.write(&pool).await.unwrap();
         assert_eq!(rows, 1);
     }

@@ -136,8 +136,8 @@ impl StateInner {
         if self.maps.contains(&map) {
             return;
         }
-        self.map_seq += 1;
         map.set_seq(self.map_seq);
+        self.map_seq += 1;
         self.maps.insert(map);
     }
 
@@ -212,7 +212,7 @@ impl StateInner {
         self.register_exe(exe.clone(), true);
         // NOTE: we can only register the exemaps after we have been assigned an
         // exe_seq
-        let exe = exe.with_exemaps(exemaps);
+        let exe = exe.try_with_exemaps(exemaps)?;
         self.running_exes.push_front(exe);
 
         Ok(())
@@ -220,8 +220,8 @@ impl StateInner {
 
     #[tracing::instrument(skip(self, exe))]
     fn register_exe(&mut self, exe: Exe, create_markovs: bool) {
-        self.exe_seq += 1;
         exe.set_seq(self.exe_seq);
+        self.exe_seq += 1;
         trace!(?exe, "registering exe");
         if create_markovs {
             self.exes.iter().for_each(|(_, other_exe)| {

@@ -46,7 +46,7 @@ mod tests {
         exe.write(&pool).await.unwrap();
 
         let exemap = ExeMap::new(map.clone());
-        let mut exemap = exemap.with_exe_seq(exe.seq());
+        let mut exemap = exemap.with_exe_seq(exe.seq().unwrap());
         exemap.prob = 2.3;
         exemap.write(&pool).await.unwrap();
     }

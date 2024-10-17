@@ -46,4 +46,8 @@ pub enum Error {
     /// Error occurred during joining async tasks.
     #[error("Failed to join async tasks: {0}")]
     JoinError(#[from] tokio::task::JoinError),
+
+    /// Exe has not been assigned a sequence number.
+    #[error("Exe {0:?} has not been assigned a sequence number")]
+    ExeSeqNotAssigned(PathBuf),
 }

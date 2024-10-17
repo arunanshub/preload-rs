@@ -15,8 +15,18 @@ impl DatabaseWriteExt for Markov {
         let time;
         {
             let markov = self.0.lock();
-            exe_a_seq = extract_exe!(markov.exe_a).seq as i64;
-            exe_b_seq = extract_exe!(markov.exe_b).seq as i64;
+            exe_a_seq = if let Some(val) = extract_exe!(markov.exe_a).seq {
+                val as i64
+            } else {
+                let path = extract_exe!(markov.exe_a).path.clone();
+                return Err(Error::ExeSeqNotAssigned(path));
+            };
+            exe_b_seq = if let Some(val) = extract_exe!(markov.exe_b).seq {
+                val as i64
+            } else {
+                let path = extract_exe!(markov.exe_b).path.clone();
+                return Err(Error::ExeSeqNotAssigned(path));
+            };
             ttl = serialize(&markov.time_to_leave)?;
             weight = serialize(&markov.weight)?;
             time = markov.time as i64;
@@ -57,7 +67,7 @@ mod tests {
     #[sqlx::test]
     async fn write_markov(pool: SqlitePool) {
         let exe_a = Exe::new("a/b/c");
-        exe_a.set_seq(1);
+        exe_a.set_seq(0);
         exe_a.write(&pool).await.unwrap();
 
         let exe_b = Exe::new("d/e/f");
