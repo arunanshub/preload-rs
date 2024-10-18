@@ -3,6 +3,10 @@
 use super::inner::StateInner;
 use crate::{database::DatabaseWriteExt, exe::database::write_bad_exe, Error};
 use sqlx::SqlitePool;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 use tracing::trace;
 
 #[async_trait::async_trait]
@@ -12,19 +16,41 @@ impl DatabaseWriteExt for StateInner {
     #[tracing::instrument(skip_all)]
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
         let mut joinset = tokio::task::JoinSet::new();
+        // number of database operations performed
+        let num_ops = Arc::new(AtomicU64::new(0));
 
         trace!("Writing maps");
         for map in &self.maps {
             let map = map.clone();
             let pool = pool.clone();
-            joinset.spawn(async move { map.write(&pool).await });
+            let num_ops = num_ops.clone();
+
+            joinset.spawn(async move {
+                match map.write(&pool).await {
+                    Ok(num) => {
+                        num_ops.fetch_add(num, Ordering::Relaxed);
+                        Ok(num)
+                    }
+                    Err(e) => Err(e),
+                }
+            });
         }
 
         trace!("Writing badexes");
         for (path, &size) in &self.bad_exes {
             let pool = pool.clone();
             let path = path.to_path_buf();
-            joinset.spawn(async move { write_bad_exe(path, size, &pool).await });
+            let num_ops = num_ops.clone();
+
+            joinset.spawn(async move {
+                match write_bad_exe(path, size, &pool).await {
+                    Ok(num) => {
+                        num_ops.fetch_add(num, Ordering::Relaxed);
+                        Ok(num)
+                    }
+                    Err(e) => Err(e),
+                }
+            });
         }
 
         trace!("Writing exes");
@@ -33,7 +59,17 @@ impl DatabaseWriteExt for StateInner {
         for exe in self.exes.values() {
             let exe = exe.clone();
             let pool = pool.clone();
-            joinset.spawn(async move { exe.write(&pool).await });
+            let num_ops = num_ops.clone();
+
+            joinset.spawn(async move {
+                match exe.write(&pool).await {
+                    Ok(num) => {
+                        num_ops.fetch_add(num, Ordering::Relaxed);
+                        Ok(num)
+                    }
+                    Err(e) => Err(e),
+                }
+            });
         }
 
         trace!("Waiting for maps, badexes, and exes to finish writing");
@@ -48,7 +84,17 @@ impl DatabaseWriteExt for StateInner {
             exemaps.iter().for_each(|exemap| {
                 let pool = pool.clone();
                 let exemap = exemap.clone();
-                joinset.spawn(async move { exemap.write(&pool).await });
+                let num_ops = num_ops.clone();
+
+                joinset.spawn(async move {
+                    match exemap.write(&pool).await {
+                        Ok(num) => {
+                            num_ops.fetch_add(num, Ordering::Relaxed);
+                            Ok(num)
+                        }
+                        Err(e) => Err(e),
+                    }
+                });
             });
             // NOTE: falsely flagged as "mutable_key_type" by clippy. Only the
             // `map` of `exemap` contributes to the hashset's key, and it is
@@ -60,7 +106,17 @@ impl DatabaseWriteExt for StateInner {
             markovs.iter().for_each(|markov| {
                 let pool = pool.clone();
                 let markov = markov.clone();
-                joinset.spawn(async move { markov.write(&pool).await });
+                let num_ops = num_ops.clone();
+
+                joinset.spawn(async move {
+                    match markov.write(&pool).await {
+                        Ok(num) => {
+                            num_ops.fetch_add(num, Ordering::Relaxed);
+                            Ok(num)
+                        }
+                        Err(e) => Err(e),
+                    }
+                });
             });
             exe.0.lock().markovs = markovs;
         });
@@ -71,6 +127,6 @@ impl DatabaseWriteExt for StateInner {
         }
         trace!("Finished writing");
 
-        Ok(1)
+        Ok(num_ops.load(Ordering::Relaxed))
     }
 }
