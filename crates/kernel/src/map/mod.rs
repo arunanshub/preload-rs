@@ -96,11 +96,11 @@ mod tests {
         #[test]
         fn map_is_sortable(mut map in vec(arbitrary_map(), 1..3000)) {
             map.sort();
-            for map_l_r in map.chunks_exact(2) {
+            map.chunks_exact(2).for_each(|map_l_r| {
                 let map_left = &map_l_r[0];
                 let map_right = &map_l_r[1];
                 assert!(map_left < map_right);
-            }
+            });
         }
     }
 }
