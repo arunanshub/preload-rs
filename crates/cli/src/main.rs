@@ -65,6 +65,7 @@ async fn main() -> anyhow::Result<()> {
                         if let Some(path) = &cli.conffile {
                             state.reload_config(path).await?;
                         }
+                        state.write().await?;
                     }
                 }
             }
