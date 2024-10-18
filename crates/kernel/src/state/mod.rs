@@ -1,39 +1,61 @@
 mod database;
 mod inner;
 
-use crate::Error;
+use crate::{
+    database::{create_database_pool, DatabaseWriteExt},
+    Error, MIGRATOR,
+};
 use config::Config;
 use inner::StateInner;
+use sqlx::SqlitePool;
 use std::{path::Path, sync::Arc, time::Duration};
 use tokio::{sync::RwLock, time};
+use tracing::debug;
 
 #[derive(Debug, Clone)]
-#[repr(transparent)]
-pub struct State(Arc<RwLock<StateInner>>);
+pub struct State {
+    inner: Arc<RwLock<StateInner>>,
+    pool: SqlitePool,
+}
 
 impl State {
-    pub fn new(config: Config) -> Self {
-        Self(Arc::new(RwLock::new(StateInner::new(config))))
+    pub async fn try_new(
+        config: Config,
+        statefile: Option<impl AsRef<Path>>,
+    ) -> Result<Self, Error> {
+        Ok(Self {
+            inner: Arc::new(RwLock::new(StateInner::new(config))),
+            pool: create_database_pool(statefile).await?,
+        })
     }
 
     pub async fn dump_info(&self) {
-        self.0.read().await.dump_info();
+        self.inner.read().await.dump_info();
     }
 
     pub async fn reload_config(&self, path: impl AsRef<Path>) -> Result<(), Error> {
-        self.0.write().await.reload_config(path)
+        self.inner.write().await.reload_config(path)
     }
 
     pub async fn update(&self) -> Result<(), Error> {
-        self.0.write().await.update()
+        self.inner.write().await.update()
     }
 
     pub async fn scan_and_predict(&self) -> Result<(), Error> {
-        self.0.write().await.scan_and_predict()
+        self.inner.write().await.scan_and_predict()
     }
 
+    #[tracing::instrument(skip_all)]
+    pub async fn write(&self) -> Result<u64, Error> {
+        self.inner.write().await.write(&self.pool).await
+    }
+
+    #[tracing::instrument(skip_all)]
     pub async fn start(self) -> Result<(), Error> {
-        let state = self.0;
+        debug!("Running migrations");
+        MIGRATOR.run(&self.pool).await?;
+
+        let state = self.inner;
         loop {
             state.write().await.scan_and_predict()?;
             time::sleep(Duration::from_secs(

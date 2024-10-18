@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     let mut signal_handle = tokio::spawn(async move { wait_for_signal(signals_tx).await });
 
     // initialize the state
-    let state = State::new(config);
+    let state = State::try_new(config, cli.statefile).await?;
     let state_clone = state.clone();
     let mut state_handle = tokio::spawn(async move { state_clone.start().await });
 
