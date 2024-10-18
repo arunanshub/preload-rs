@@ -29,7 +29,7 @@ impl Map {
         &self.inner.path
     }
 
-    pub fn seq(&self) -> u64 {
+    pub fn seq(&self) -> Option<u64> {
         self.inner.runtime.lock().seq
     }
 
@@ -50,7 +50,7 @@ impl Map {
     }
 
     pub fn set_seq(&self, seq: u64) {
-        self.inner.runtime.lock().seq = seq;
+        self.inner.runtime.lock().seq.replace(seq);
     }
 
     pub fn zero_lnprob(&self) {

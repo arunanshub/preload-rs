@@ -39,6 +39,10 @@ pub enum Error {
     #[error("Database error: {0}")]
     DatabaseError(#[from] sqlx::Error),
 
+    /// Error occurred while performing a database migration operation.
+    #[error("Failed to run database migration: {0}")]
+    MigrationFailed(#[from] sqlx::migrate::MigrateError),
+
     /// Error occurred during performing a bincode serialization operation.
     #[error("Failed to serialize to bincode: {0}")]
     BincodeSerializeFailed(#[from] bincode::Error),
@@ -50,4 +54,17 @@ pub enum Error {
     /// Exe has not been assigned a sequence number.
     #[error("Exe {0:?} has not been assigned a sequence number")]
     ExeSeqNotAssigned(PathBuf),
+
+    /// Map has not been assigned a sequence number.
+    #[error("Map {path:?} has not been assigned a sequence number")]
+    MapSeqNotAssigned {
+        /// Path of the map.
+        path: PathBuf,
+
+        /// Offset of the map.
+        offset: u64,
+
+        /// Length of the map.
+        length: u64,
+    },
 }

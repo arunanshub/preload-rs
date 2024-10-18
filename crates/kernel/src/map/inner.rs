@@ -10,7 +10,7 @@ pub struct RuntimeStats {
     pub lnprob: f32,
 
     /// Unique map sequence number.
-    pub seq: u64,
+    pub seq: Option<u64>,
 
     /// On-disk location of the start of the map.
     pub block: Option<u64>,

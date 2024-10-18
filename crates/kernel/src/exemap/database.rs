@@ -7,7 +7,15 @@ impl DatabaseWriteExt for ExeMap {
     type Error = Error;
 
     async fn write(&self, pool: &SqlitePool) -> Result<u64, Self::Error> {
-        let map_id = self.map.seq() as i64;
+        let map_id = if let Some(val) = self.map.seq() {
+            val as i64
+        } else {
+            return Err(Error::MapSeqNotAssigned {
+                path: self.map.path().into(),
+                offset: self.map.offset(),
+                length: self.map.length(),
+            });
+        };
         let exe_id = self.exe_seq as i64;
 
         let mut tx = pool.begin().await?;
@@ -40,6 +48,7 @@ mod tests {
     #[sqlx::test]
     fn write_exemap(pool: SqlitePool) {
         let map = Map::new("ab/c", 1, 2, 3);
+        map.set_seq(1);
         map.write(&pool).await.unwrap();
         let exe = Exe::new("foo/bar");
         exe.set_seq(1);
