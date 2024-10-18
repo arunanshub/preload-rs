@@ -58,15 +58,9 @@ impl State {
         let state = self.inner;
         loop {
             state.write().await.scan_and_predict()?;
-            time::sleep(Duration::from_secs(
-                state.read().await.config.model.cycle as u64 / 2,
-            ))
-            .await;
+            time::sleep(state.read().await.config.model.cycle / 2).await;
             state.write().await.update()?;
-            time::sleep(Duration::from_secs(
-                (state.read().await.config.model.cycle + 1) as u64 / 2,
-            ))
-            .await;
+            time::sleep((state.read().await.config.model.cycle + Duration::from_secs(1)) / 2).await;
         }
     }
 }

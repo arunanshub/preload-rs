@@ -1,7 +1,9 @@
 use crate::sort_strategy::SortStrategy;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use serde_with::serde_as;
+use std::{path::PathBuf, time::Duration};
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct System {
     /// Whether preload should monitor running processes and update its model
@@ -28,14 +30,16 @@ pub struct System {
     pub dopredict: bool,
 
     /// Preload will automatically save the state to disk every autosave
-    /// period. This is only relevant if doscan is set to true.
+    /// period. This is only relevant if doscan is set to true. The period is
+    /// measured in **seconds**.
     ///
     /// # Note
     ///
     /// Some janitory work on the model, like removing entries for files that
     /// no longer exist happen at state save time. So, turning off autosave
     /// completely is not advised.
-    pub autosave: u32,
+    #[serde_as(as = "serde_with::DurationSeconds")]
+    pub autosave: Duration,
 
     /// A list of path prefixes that control which mapped file are to be
     /// considered by preload and which not. The list items are separated by
@@ -80,7 +84,7 @@ impl Default for System {
         Self {
             doscan: true,
             dopredict: true,
-            autosave: 3600,
+            autosave: Duration::from_secs(3600),
             // TODO: can use mapexclude and exeexclude
             mapprefix: vec![
                 PathBuf::from("/opt"),

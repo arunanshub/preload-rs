@@ -329,7 +329,7 @@ impl StateInner {
             exe.markov_bid_in_exes(
                 self.config.model.usecorrelation,
                 self.time,
-                self.config.model.cycle as f32,
+                self.config.model.cycle.as_secs_f32(),
             )
         })?;
         trace!("Markov is done bidding in exes");
@@ -507,7 +507,9 @@ impl StateInner {
             self.prophet_predict()?;
         }
 
-        self.time += self.config.model.cycle as u64 / 2;
+        // TODO: the actual sleep takes place outside the function by the
+        // caller. This leads to some duplication.
+        self.time += self.config.model.cycle.as_secs() / 2;
         Ok(())
     }
 
@@ -518,7 +520,9 @@ impl StateInner {
             self.model_dirty = false;
         }
 
-        self.time += (self.config.model.cycle as u64 + 1) / 2;
+        // TODO: the actual sleep takes place outside the function by the
+        // caller. This leads to some duplication.
+        self.time += (self.config.model.cycle.as_secs() + 1) / 2;
         Ok(())
     }
 }

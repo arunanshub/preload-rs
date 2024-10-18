@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use std::time::Duration;
 
+#[serde_as]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Model {
     /// This is the quantum of time for preload. Preload performs data gathering
@@ -10,7 +13,8 @@ pub struct Model {
     ///
     /// Setting this parameter too low may reduce system performance and
     /// stability.
-    pub cycle: u32,
+    #[serde_as(as = "serde_with::DurationSeconds")]
+    pub cycle: Duration,
 
     /// Whether correlation coefficient should be used in the prediction
     /// algorithm. There are arguments both for and against using it.
@@ -53,7 +57,7 @@ pub struct Model {
 impl Default for Model {
     fn default() -> Self {
         Self {
-            cycle: 2,
+            cycle: Duration::from_secs(2),
             usecorrelation: true,
             minsize: 2_000_000,
             memtotal: -10,

@@ -50,6 +50,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     use tempfile::tempdir;
 
     #[test]
@@ -76,7 +77,7 @@ mod tests {
         let mut config2 = Config::save_and_load(&file).unwrap();
         assert_eq!(config, config2);
         // modify the config and save it
-        config2.model.cycle = 124;
+        config2.model.cycle = Duration::from_secs(124);
         config2.save(&file).unwrap();
         // the loaded config should match the modified one
         let config3 = Config::save_and_load(&file).unwrap();
