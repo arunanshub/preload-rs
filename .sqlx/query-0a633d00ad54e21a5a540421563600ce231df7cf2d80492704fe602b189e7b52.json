@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO badexes\n            (path, update_time)\n        VALUES\n            (?, ?)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "0a633d00ad54e21a5a540421563600ce231df7cf2d80492704fe602b189e7b52"
+}

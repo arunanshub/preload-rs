@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO exemaps\n                (exe_id, map_id, prob)\n            VALUES\n                (?, ?, ?)\n            ON CONFLICT(exe_id, map_id) DO UPDATE SET\n                prob = excluded.prob\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "2dfb1d916f9f822fbd87e0f195adf32f40eb8470990d81f0ec4b37f78a721dd0"
+}

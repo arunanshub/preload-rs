@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO markovs\n                (exe_a, exe_b, time, time_to_leave, weight)\n            VALUES\n                (?, ?, ?, ?, ?)\n            ON CONFLICT(exe_a, exe_b) DO UPDATE SET\n                time = excluded.time,\n                time_to_leave = excluded.time_to_leave,\n                weight = excluded.weight\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "7696530be288047c4c84d6c7b1708532753df5d03a5c295f91138658ab537434"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO exes\n                (id, path, update_time, time)\n            VALUES\n                (?, ?, ?, ?)\n            ON CONFLICT(id) DO UPDATE SET\n                path = excluded.path,\n                update_time = excluded.update_time,\n                time = excluded.time\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "29f0aaa17e86230df0aa68562a01426b39524130bd7a0c2378e72f0a6eead60e"
+}

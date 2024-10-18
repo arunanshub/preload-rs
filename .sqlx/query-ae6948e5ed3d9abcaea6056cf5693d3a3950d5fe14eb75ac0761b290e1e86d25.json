@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO maps\n                (id, update_time, offset, length, path)\n            VALUES\n                (?, ?, ?, ?, ?)\n            ON CONFLICT(id) DO UPDATE SET\n                update_time = excluded.update_time,\n                offset = excluded.offset,\n                length = excluded.length,\n                path = excluded.path\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "ae6948e5ed3d9abcaea6056cf5693d3a3950d5fe14eb75ac0761b290e1e86d25"
+}
