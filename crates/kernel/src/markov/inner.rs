@@ -160,8 +160,8 @@ impl MarkovInner {
         //
         // regularize a bit by adding something to denominator
         let p_y_runs_next = {
-            let temp = self.weight[state_ix][ystate_ix] as f32 + self.weight[state_ix][3] as f32;
-            temp / self.weight[state_ix][state_ix] as f32 + 0.01
+            let temp = (self.weight[state_ix][ystate_ix] + self.weight[state_ix][3]) as f32;
+            temp / (self.weight[state_ix][state_ix] as f32 + 0.01)
         };
 
         // FIXME: (from original impl.) what should we do we correlation w.r.t. state?
