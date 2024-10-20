@@ -58,20 +58,29 @@ impl Markov {
 
 #[cfg(test)]
 mod tests {
-    use core::panic;
-
     use super::Markov;
     use crate::{Error, Exe};
+    use core::panic;
+    use proptest::prelude::*;
 
     #[test]
     fn build_markov_with_two_exes() {
-        let exe_a = Exe::new("foo");
-        let exe_b = Exe::new("bar");
-
-        exe_a
-            .build_markov_chain_with(&exe_b, 1, 1)
-            .unwrap()
-            .unwrap();
+        proptest!(|(
+            time: u64, last_running_ts: u64,
+            a_change_ts: u64, b_change_ts: u64,
+            a_last_running_ts: u64, b_last_running_ts: u64
+        )| {
+            let exe_a = Exe::new("foo")
+                .with_change_timestamp(a_change_ts)
+                .with_running(a_last_running_ts);
+            let exe_b = Exe::new("bar")
+                .with_change_timestamp(b_change_ts)
+                .with_running(b_last_running_ts);
+            exe_a
+                .build_markov_chain_with(&exe_b, time, last_running_ts)
+                .unwrap()
+                .unwrap();
+        });
     }
 
     #[test]

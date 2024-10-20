@@ -60,7 +60,12 @@ impl State {
             state.write().await.scan_and_predict()?;
             time::sleep(state.read().await.config.model.cycle / 2).await;
             state.write().await.update()?;
-            time::sleep((state.read().await.config.model.cycle + Duration::from_secs(1)) / 2).await;
+            // NOTE: instead of directly doing (cycle + Duration::from_secs(1)) / 2,
+            // we take a detour because we want to reject the sub-second part of
+            // the duration.
+            let sleep_duration =
+                Duration::from_secs((state.read().await.config.model.cycle.as_secs() + 1) / 2);
+            time::sleep(sleep_duration).await;
         }
     }
 }

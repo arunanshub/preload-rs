@@ -6,6 +6,7 @@ use preload_rs::{
     cli::Cli,
     signals::{wait_for_signal, SignalEvent},
 };
+use tokio::time;
 use tracing::{debug, error};
 use tracing_log::AsTrace;
 
@@ -31,15 +32,36 @@ async fn main() -> anyhow::Result<()> {
     let (signals_tx, signals_rx) = bounded(8);
     let mut signal_handle = tokio::spawn(async move { wait_for_signal(signals_tx).await });
 
+    let autosave = config.system.autosave;
+
     // initialize the state
     let state = State::try_new(config, cli.statefile).await?;
     let state_clone = state.clone();
     let mut state_handle = tokio::spawn(async move { state_clone.start().await });
 
+    // start the saver in a different thread
+    let state_clone = state.clone();
+    let mut saver_handle = tokio::spawn(async move { saver(state_clone, autosave).await });
+
     loop {
         tokio::select! {
             // bubble up any errors from the signal handlers and timers
-            res = &mut signal_handle => { res?? }
+            res = &mut signal_handle => {
+                let res = res?;
+                if let Err(err) = &res {
+                    error!("error happened during handling signals: {}", err);
+                }
+                res?
+            }
+
+            // bubble up any errors from the saver
+            res = &mut saver_handle => {
+                let res = res?;
+                if let Err(err) = &res {
+                    error!("error happened during saving state: {}", err);
+                }
+                res?
+            }
 
             // bubble up any errors from the state
             res = &mut state_handle => {
@@ -70,5 +92,15 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+    }
+}
+
+#[inline]
+async fn saver(state: State, period: std::time::Duration) -> anyhow::Result<()> {
+    debug!(?period, "autosave interval");
+    loop {
+        time::sleep(period).await;
+        debug!("autosaving state");
+        state.write().await?;
     }
 }
