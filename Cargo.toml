@@ -6,7 +6,7 @@ members = ["crates/*"]
 thiserror = "1.0.64"
 tracing = "0.1.40"
 proptest = "1.5.0"
-flume = "0.11.0"
+flume = "0.11.1"
 
 [profile.release]
 lto = true
