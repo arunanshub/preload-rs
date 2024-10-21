@@ -12,7 +12,7 @@ pub use database::MIGRATOR;
 pub use error::Error;
 pub use exe::Exe;
 pub use exemap::ExeMap;
-pub use map::{Map, RuntimeStats};
+pub use map::{Map, MapDatabaseReadExt, RuntimeStats};
 pub use markov::{Markov, MarkovState};
 pub use memstat::MemStat;
 pub use state::State;

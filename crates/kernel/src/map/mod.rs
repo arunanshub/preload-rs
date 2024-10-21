@@ -2,6 +2,7 @@ mod database;
 mod inner;
 
 use crate::Error;
+pub use database::MapDatabaseReadExt;
 use inner::MapInner;
 pub use inner::RuntimeStats;
 use std::{

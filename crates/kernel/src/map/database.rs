@@ -53,6 +53,44 @@ impl DatabaseWriteExt for Map {
     }
 }
 
+#[async_trait::async_trait]
+pub trait MapDatabaseReadExt {
+    /// Read all maps from the database.
+    async fn read_all(pool: &SqlitePool) -> Result<Vec<Map>, Error>;
+}
+
+#[async_trait::async_trait]
+impl MapDatabaseReadExt for Map {
+    async fn read_all(pool: &SqlitePool) -> Result<Vec<Map>, Error> {
+        let records = sqlx::query!(
+            "
+            SELECT
+                id, update_time, offset, length, path
+            FROM
+                maps
+        "
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let maps = records
+            .into_iter()
+            .map(|record| {
+                let map = Map::new(
+                    record.path,
+                    record.offset as u64,
+                    record.length as u64,
+                    record.update_time as u64,
+                );
+                map.set_seq(record.id as u64);
+                map
+            })
+            .collect::<Vec<_>>();
+
+        Ok(maps)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,5 +108,19 @@ mod tests {
         let map = Map::new("a/b/c", 12, 13, 14);
         let result = map.write(&pool).await;
         assert!(result.is_err());
+    }
+
+    #[sqlx::test]
+    fn read_all_maps(pool: SqlitePool) {
+        let mut maps = vec![];
+        for i in 0..10 {
+            let map = Map::new(format!("a/b/c/{}", i), i, i + 1, i + 2);
+            map.set_seq(i);
+            map.write(&pool).await.unwrap();
+            maps.push(map);
+        }
+
+        let maps_read = Map::read_all(&pool).await.unwrap();
+        assert_eq!(maps, maps_read);
     }
 }
