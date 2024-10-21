@@ -19,6 +19,30 @@ impl DatabaseWriteExt for StateInner {
         // number of database operations performed
         let num_ops = Arc::new(AtomicU64::new(0));
 
+        trace!("Writing state");
+        {
+            let mut tx = pool.begin().await?;
+            let time = self.time as i64;
+            let version = env!("CARGO_PKG_VERSION");
+            let rows_affected = sqlx::query!(
+                "
+            INSERT INTO state
+                (version, time)
+            VALUES
+                (?, ?)
+            ON CONFLICT(version) DO UPDATE SET
+                time = excluded.time
+        ",
+                version,
+                time
+            )
+            .execute(&mut *tx)
+            .await?
+            .rows_affected();
+            tx.commit().await?;
+            num_ops.fetch_add(rows_affected, Ordering::Relaxed);
+        }
+
         trace!("Writing maps");
         for map in &self.maps {
             let map = map.clone();
@@ -125,8 +149,7 @@ impl DatabaseWriteExt for StateInner {
         while let Some(res) = joinset.join_next().await {
             res??;
         }
-        trace!("Finished writing");
-
+        trace!(?num_ops, "database operations performed");
         Ok(num_ops.load(Ordering::Relaxed))
     }
 }
