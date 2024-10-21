@@ -1,4 +1,9 @@
 -- Add migration script here
+CREATE TABLE state (
+    version TEXT PRIMARY KEY,
+    time INTEGER NOT NULL
+) STRICT;
+
 CREATE TABLE maps (
     id INTEGER PRIMARY KEY,
     update_time INTEGER NOT NULL,
