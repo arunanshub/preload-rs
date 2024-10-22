@@ -1,7 +1,7 @@
 use super::Exe;
 use crate::{database::DatabaseWriteExt, Error};
 use sqlx::SqlitePool;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[async_trait::async_trait]
 impl DatabaseWriteExt for Exe {
@@ -86,6 +86,27 @@ pub async fn write_bad_exe(
     Ok(rows_affected)
 }
 
+/// Read bad exes from the database.
+pub async fn read_bad_exes(pool: &SqlitePool) -> Result<Vec<(PathBuf, u64)>, Error> {
+    let mut tx = pool.begin().await?;
+    let bad_exes = sqlx::query!(
+        r#"
+        SELECT
+            path, update_time
+        FROM
+            badexes
+        "#
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+
+    Ok(bad_exes
+        .into_iter()
+        .map(|row| (PathBuf::from(row.path), row.update_time as u64))
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,5 +125,19 @@ mod tests {
         let size = 2;
         let rows = write_bad_exe(path, size, &pool).await.unwrap();
         assert_eq!(rows, 1);
+    }
+
+    #[sqlx::test]
+    fn test_read_bad_exes(pool: SqlitePool) {
+        let mut bad_exes = vec![];
+        for i in 0..3 {
+            let path = PathBuf::from(format!("a/b/c/{i}"));
+            let size = i as u64;
+            write_bad_exe(&path, size, &pool).await.unwrap();
+            bad_exes.push((path, size));
+        }
+
+        let bad_exes_read = read_bad_exes(&pool).await.unwrap();
+        assert_eq!(bad_exes, bad_exes_read);
     }
 }
