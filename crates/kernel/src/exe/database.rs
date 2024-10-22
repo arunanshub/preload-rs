@@ -1,7 +1,10 @@
 use super::Exe;
 use crate::{database::DatabaseWriteExt, Error};
 use sqlx::SqlitePool;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[async_trait::async_trait]
 impl DatabaseWriteExt for Exe {
@@ -86,6 +89,44 @@ pub async fn write_bad_exe(
     Ok(rows_affected)
 }
 
+#[async_trait::async_trait]
+pub trait ExeDatabaseReadExt: Sized {
+    /// Read exes from the database.
+    ///
+    /// Once read, make sure [`State`](crate::State) registers these.
+    async fn read_exes(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error>;
+}
+
+#[async_trait::async_trait]
+impl ExeDatabaseReadExt for Exe {
+    async fn read_exes(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error> {
+        let records = sqlx::query!(
+            r#"
+            SELECT
+                id as "id: u64", path, update_time as "update_time: u64", time as "time: u64"
+            FROM
+                exes
+            "#
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let exes: HashMap<_, _> = records
+            .into_iter()
+            .map(|row| {
+                let exe = Exe::new(&row.path);
+                if let Some(update_time) = row.update_time {
+                    exe.set_update_time(update_time);
+                }
+                exe.set_seq(row.id);
+                exe.set_time(row.time);
+                (PathBuf::from(row.path), exe)
+            })
+            .collect();
+        Ok(exes)
+    }
+}
+
 /// Read bad exes from the database.
 pub async fn read_bad_exes(pool: &SqlitePool) -> Result<Vec<(PathBuf, u64)>, Error> {
     let mut tx = pool.begin().await?;
@@ -139,5 +180,27 @@ mod tests {
 
         let bad_exes_read = read_bad_exes(&pool).await.unwrap();
         assert_eq!(bad_exes, bad_exes_read);
+    }
+
+    #[sqlx::test]
+    fn test_read_exes(pool: SqlitePool) {
+        let mut exes = HashMap::new();
+        for i in 0..10 {
+            let path = PathBuf::from(format!("a/b/c/{i}"));
+            let exe = Exe::new(&path).with_change_timestamp(i).with_running(i + 1);
+            exe.set_seq(i);
+            exe.write(&pool).await.unwrap();
+            exes.insert(path.clone(), exe);
+        }
+
+        let exes_read = Exe::read_exes(&pool).await.unwrap();
+        // assert exes and exes_read are equal
+        assert_eq!(exes.len(), exes_read.len());
+        for (path, exe) in exes {
+            let read_exe = exes_read.get(&path).expect("Exe not found");
+            assert_eq!(exe.seq(), read_exe.seq());
+            assert_eq!(exe.0.lock().time, read_exe.0.lock().time);
+            assert_eq!(exe.0.lock().update_time, read_exe.0.lock().update_time);
+        }
     }
 }

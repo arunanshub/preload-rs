@@ -54,14 +54,14 @@ impl DatabaseWriteExt for Map {
 }
 
 #[async_trait::async_trait]
-pub trait MapDatabaseReadExt {
+pub trait MapDatabaseReadExt: Sized {
     /// Read all maps from the database.
-    async fn read_all(pool: &SqlitePool) -> Result<Vec<Map>, Error>;
+    async fn read_all(pool: &SqlitePool) -> Result<Vec<Self>, Error>;
 }
 
 #[async_trait::async_trait]
 impl MapDatabaseReadExt for Map {
-    async fn read_all(pool: &SqlitePool) -> Result<Vec<Map>, Error> {
+    async fn read_all(pool: &SqlitePool) -> Result<Vec<Self>, Error> {
         let records = sqlx::query!(
             "
             SELECT

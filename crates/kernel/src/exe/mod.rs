@@ -139,15 +139,15 @@ impl Exe {
         self.0.lock().is_running(last_running_timestamp)
     }
 
-    pub fn update_running_timestamp(&self, running_timestamp: u64) {
+    pub fn set_running_timestamp(&self, running_timestamp: u64) {
         self.0.lock().running_timestamp.replace(running_timestamp);
     }
 
-    pub fn update_change_timestamp(&self, change_timestamp: u64) {
+    pub fn set_change_timestamp(&self, change_timestamp: u64) {
         self.0.lock().change_timestamp = change_timestamp;
     }
 
-    pub fn update_time(&self, time: u64) {
+    pub fn set_time(&self, time: u64) {
         self.0.lock().time = time;
     }
 
@@ -156,6 +156,10 @@ impl Exe {
     /// This is called by [`State`](crate::State) during runtime.
     pub fn set_seq(&self, seq: u64) {
         self.0.lock().seq.replace(seq);
+    }
+
+    pub fn set_update_time(&self, update_time: u64) {
+        self.0.lock().update_time.replace(update_time);
     }
 
     pub fn bid_in_maps(&self, last_running_timestamp: u64) {

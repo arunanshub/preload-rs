@@ -180,7 +180,7 @@ impl StateInner {
                 self.new_running_exes.push_back(exe.clone());
                 self.state_changed_exes.push_back(exe.clone());
             }
-            exe.update_running_timestamp(self.time);
+            exe.set_running_timestamp(self.time);
         } else if !self.bad_exes.contains_key(&exe_path) {
             self.new_exes.insert(exe_path, pid);
         }
@@ -274,7 +274,7 @@ impl StateInner {
     }
 
     fn exe_changed_callback(&self, exe: &Exe) -> Result<(), Error> {
-        exe.update_change_timestamp(self.time);
+        exe.set_change_timestamp(self.time);
         exe.markov_state_changed(self.time, self.last_running_timestamp)
     }
 
@@ -300,7 +300,7 @@ impl StateInner {
         let period = self.time - self.last_accounting_timestamp;
         self.exes.par_iter().for_each(|(_, exe)| {
             if exe.is_running(self.last_running_timestamp) {
-                exe.update_time(period);
+                exe.set_time(period);
             }
         });
         trace!("Exe time updated");
