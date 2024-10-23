@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::Map;
 use crate::{database::DatabaseWriteExt, Error};
 use sqlx::SqlitePool;
@@ -56,12 +58,12 @@ impl DatabaseWriteExt for Map {
 #[async_trait::async_trait]
 pub trait MapDatabaseReadExt: Sized {
     /// Read all maps from the database.
-    async fn read_all(pool: &SqlitePool) -> Result<Vec<Self>, Error>;
+    async fn read_all(pool: &SqlitePool) -> Result<HashSet<Self>, Error>;
 }
 
 #[async_trait::async_trait]
 impl MapDatabaseReadExt for Map {
-    async fn read_all(pool: &SqlitePool) -> Result<Vec<Self>, Error> {
+    async fn read_all(pool: &SqlitePool) -> Result<HashSet<Self>, Error> {
         let records = sqlx::query!(
             "
             SELECT
@@ -85,7 +87,7 @@ impl MapDatabaseReadExt for Map {
                 map.set_seq(record.id as u64);
                 map
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         Ok(maps)
     }
@@ -112,12 +114,12 @@ mod tests {
 
     #[sqlx::test]
     fn read_all_maps(pool: SqlitePool) {
-        let mut maps = vec![];
+        let mut maps = HashSet::new();
         for i in 0..10 {
             let map = Map::new(format!("a/b/c/{}", i), i, i + 1, i + 2);
             map.set_seq(i);
             map.write(&pool).await.unwrap();
-            maps.push(map);
+            maps.insert(map);
         }
 
         let maps_read = Map::read_all(&pool).await.unwrap();
