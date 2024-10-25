@@ -1,4 +1,4 @@
-mod database;
+pub(crate) mod database;
 
 use crate::Map;
 use educe::Educe;
@@ -10,7 +10,7 @@ pub struct ExeMap {
 
     // TODO: should this be Option<u64>?
     #[educe(Eq(ignore), Ord(ignore), Hash(ignore))]
-    pub exe_seq: u64,
+    pub exe_seq: Option<u64>,
 
     #[educe(Eq(ignore), Ord(ignore), Hash(ignore))]
     pub prob: f32,
@@ -20,7 +20,7 @@ impl ExeMap {
     pub fn new(map: Map) -> Self {
         Self {
             map,
-            exe_seq: 0,
+            exe_seq: None,
             prob: 1.0,
         }
     }
@@ -34,7 +34,12 @@ impl ExeMap {
     /// we could have given exemap a weakref to exe, but that would have made
     /// the code more complex. Maybe that's a todo for some other time.
     pub fn with_exe_seq(mut self, exe_seq: u64) -> Self {
-        self.exe_seq = exe_seq;
+        self.exe_seq.replace(exe_seq);
+        self
+    }
+
+    pub fn with_prob(mut self, prob: f32) -> Self {
+        self.prob = prob;
         self
     }
 }

@@ -1,5 +1,3 @@
-#![allow(clippy::mutable_key_type)]
-
 use crate::{Error, ExeMap, Markov};
 use educe::Educe;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};

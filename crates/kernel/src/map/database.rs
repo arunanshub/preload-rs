@@ -1,8 +1,7 @@
-use std::collections::HashSet;
-
 use super::Map;
 use crate::{database::DatabaseWriteExt, Error};
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 
 #[async_trait::async_trait]
 impl DatabaseWriteExt for Map {
@@ -58,19 +57,23 @@ impl DatabaseWriteExt for Map {
 #[async_trait::async_trait]
 pub trait MapDatabaseReadExt: Sized {
     /// Read all maps from the database.
-    async fn read_all(pool: &SqlitePool) -> Result<HashSet<Self>, Error>;
+    async fn read_all(pool: &SqlitePool) -> Result<HashMap<u64, Self>, Error>;
 }
 
 #[async_trait::async_trait]
 impl MapDatabaseReadExt for Map {
-    async fn read_all(pool: &SqlitePool) -> Result<HashSet<Self>, Error> {
+    async fn read_all(pool: &SqlitePool) -> Result<HashMap<u64, Self>, Error> {
         let records = sqlx::query!(
-            "
+            r#"
             SELECT
-                id, update_time, offset, length, path
+                id as "id: u64",
+                update_time as "update_time: u64",
+                offset as "offset: u64",
+                length as "length: u64",
+                path
             FROM
                 maps
-        "
+        "#
         )
         .fetch_all(pool)
         .await?;
@@ -80,12 +83,12 @@ impl MapDatabaseReadExt for Map {
             .map(|record| {
                 let map = Map::new(
                     record.path,
-                    record.offset as u64,
-                    record.length as u64,
-                    record.update_time as u64,
+                    record.offset,
+                    record.length,
+                    record.update_time,
                 );
-                map.set_seq(record.id as u64);
-                map
+                map.set_seq(record.id);
+                (record.id, map)
             })
             .collect();
 
@@ -95,7 +98,10 @@ impl MapDatabaseReadExt for Map {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::mutable_key_type)]
+
     use super::*;
+    use std::collections::HashSet;
 
     #[sqlx::test]
     fn write_map(pool: SqlitePool) {
@@ -122,7 +128,7 @@ mod tests {
             maps.insert(map);
         }
 
-        let maps_read = Map::read_all(&pool).await.unwrap();
+        let maps_read: HashSet<_> = Map::read_all(&pool).await.unwrap().into_values().collect();
         assert_eq!(maps, maps_read);
     }
 }
