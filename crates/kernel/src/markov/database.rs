@@ -138,6 +138,9 @@ impl MarkovDatabaseReadExt for Markov {
 mod tests {
     use super::*;
     use crate::Exe;
+    use futures::future::join_all;
+    use itertools::Itertools;
+    use pretty_assertions::assert_eq;
 
     #[sqlx::test]
     async fn write_markov(pool: SqlitePool) {
@@ -155,5 +158,44 @@ mod tests {
             .expect("both exes should have different path");
         let rows = markov.write(&pool).await.unwrap();
         assert_eq!(rows, 1);
+    }
+
+    #[sqlx::test]
+    fn read_markovs(pool: SqlitePool) {
+        // let there be a given number of exes
+        let mut exes = HashMap::new();
+        for i in 0..10 {
+            let path = PathBuf::from(format!("path/a/b/{i}"));
+            exes.insert(path.clone(), Exe::new(path));
+        }
+        // set the sequence number for each exe and write them to db
+        join_all(exes.values().enumerate().map(|(i, exe)| {
+            exe.set_seq(i as u64);
+            exe.write(&pool)
+        }))
+        .await;
+
+        // build markov chains with adjacent exes: (1, 2), (2, 3), (3, 4), ... (n-1, n), (n, 1)
+        // where n is the number of exes
+        let mut markovs = vec![];
+        for (exe_a, exe_b) in exes.values().circular_tuple_windows() {
+            let markov = exe_a
+                .build_markov_chain_with(&exe_b, 1, 2)
+                .unwrap()
+                .unwrap();
+            markov.write(&pool).await.unwrap();
+            markovs.push(markov);
+        }
+
+        // read the markovs back from the db and assert
+        let markovs_read = Markov::read_all(&pool, &exes, 1, 2).await.unwrap();
+        assert_eq!(markovs.len(), markovs_read.len());
+        for (markov, markov_read) in markovs.iter().zip(markovs_read.iter()) {
+            assert_eq!(
+                markov.0.lock().time_to_leave,
+                markov_read.0.lock().time_to_leave
+            );
+            assert_eq!(markov.0.lock().weight, markov_read.0.lock().weight);
+        }
     }
 }
