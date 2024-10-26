@@ -201,7 +201,7 @@ mod macros {
     #[macro_export]
     macro_rules! extract_exe {
         ($exe:expr) => {{
-            $exe.0.upgrade().ok_or(Error::ExeDoesNotExist)?.lock()
+            $exe.0.upgrade().ok_or(Error::ExeMarkovDeallocated)?.lock()
         }};
     }
 }

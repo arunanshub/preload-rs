@@ -13,6 +13,6 @@ pub use error::Error;
 pub use exe::{database::ExeDatabaseReadExt, Exe};
 pub use exemap::{database::ExeMapDatabaseReadExt, ExeMap};
 pub use map::{database::MapDatabaseReadExt, Map, RuntimeStats};
-pub use markov::{Markov, MarkovState};
+pub use markov::{database::MarkovDatabaseReadExt, Markov, MarkovState};
 pub use memstat::MemStat;
 pub use state::State;

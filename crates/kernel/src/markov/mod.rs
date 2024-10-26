@@ -1,4 +1,4 @@
-mod database;
+pub(crate) mod database;
 mod inner;
 mod markov_state;
 
@@ -101,7 +101,7 @@ mod tests {
         let markov = Markov::new(exe_a.for_markov(), exe_b.for_markov());
         drop(exe_a);
         if let Err(err) = markov.with_initialize(1, 1) {
-            assert!(matches!(err, Error::ExeDoesNotExist));
+            assert!(matches!(err, Error::ExeMarkovDeallocated));
         } else {
             panic!()
         };

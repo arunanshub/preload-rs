@@ -16,7 +16,7 @@ pub enum Error {
     ProcfsFieldDoesNotExist(String),
 
     /// Error occurred while reading a file.
-    #[error("Failed to read file: {0}")]
+    #[error("Failed to perform I/O operation on file: {0}")]
     FileReadFailed(#[from] std::io::Error),
 
     /// Error occurred while performing a POSIX fadvise operation.
@@ -29,7 +29,7 @@ pub enum Error {
 
     /// The exe associated with markov has been deallocated.
     #[error("Exe associated with markov has been deallocated")]
-    ExeDoesNotExist,
+    ExeMarkovDeallocated,
 
     /// The path is invalid.
     #[error("Path is invalid: {0}")]
@@ -51,8 +51,8 @@ pub enum Error {
     #[error("Failed to join async tasks: {0}")]
     JoinError(#[from] tokio::task::JoinError),
 
-    /// Exe has not been assigned a sequence number.
-    #[error("Exe {0:?} has not been assigned a sequence number")]
+    /// Exe does not exist or it has not been assigned a sequence number.
+    #[error("Exe {0:?} does not exist or it has not been assigned a sequence number")]
     ExeSeqNotAssigned(PathBuf),
 
     /// Map has not been assigned a sequence number.

@@ -94,12 +94,12 @@ pub trait ExeDatabaseReadExt: Sized {
     /// Read exes from the database.
     ///
     /// Once read, make sure [`State`](crate::State) registers these.
-    async fn read_exes(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error>;
+    async fn read_all(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error>;
 }
 
 #[async_trait::async_trait]
 impl ExeDatabaseReadExt for Exe {
-    async fn read_exes(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error> {
+    async fn read_all(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error> {
         let records = sqlx::query!(
             r#"
             SELECT
@@ -193,7 +193,7 @@ mod tests {
             exes.insert(path.clone(), exe);
         }
 
-        let exes_read = Exe::read_exes(&pool).await.unwrap();
+        let exes_read = Exe::read_all(&pool).await.unwrap();
         // assert exes and exes_read are equal
         assert_eq!(exes.len(), exes_read.len());
         for (path, exe) in exes {
