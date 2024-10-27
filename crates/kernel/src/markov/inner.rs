@@ -65,6 +65,16 @@ impl MarkovInner {
         Ok(())
     }
 
+    /// Set markov's state based on the running status of the exes.
+    ///
+    /// See also, [`MarkovState`].
+    pub fn set_state(&mut self, last_running_timestamp: u64) -> Result<(), Error> {
+        let is_exe_a_running = extract_exe!(self.exe_a).is_running(last_running_timestamp);
+        let is_exe_b_running = extract_exe!(self.exe_b).is_running(last_running_timestamp);
+        self.state = get_markov_state(is_exe_a_running, is_exe_b_running);
+        Ok(())
+    }
+
     pub fn state_changed(
         &mut self,
         state_time: u64,

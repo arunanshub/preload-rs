@@ -19,16 +19,23 @@ impl Markov {
     pub fn with_initialize(
         self,
         state_time: u64,
-        last_runnging_timestamp: u64,
+        last_running_timestamp: u64,
     ) -> Result<Markov, Error> {
         {
             let lock = &mut self.0.lock();
-            lock.with_initialize(state_time, last_runnging_timestamp)?;
+            lock.with_initialize(state_time, last_running_timestamp)?;
             extract_exe!(lock.exe_a).markovs.push(self.clone());
             extract_exe!(lock.exe_b).markovs.push(self.clone());
         }
 
         Ok(self)
+    }
+
+    /// Set markov's state based on the running status of the exes.
+    ///
+    /// See also, [`MarkovState`].
+    pub fn set_state(&self, last_running_timestamp: u64) -> Result<(), Error> {
+        self.0.lock().set_state(last_running_timestamp)
     }
 
     pub fn state_changed(&self, state_time: u64, last_running_timestamp: u64) -> Result<(), Error> {

@@ -62,7 +62,7 @@ impl DatabaseWriteExt for Markov {
 
 #[async_trait::async_trait]
 pub trait MarkovDatabaseReadExt: Sized {
-    /// Read all markovs from the database.
+    /// Read all markovs from the database and registers them with [`Exe`s](crate::Exe).
     ///
     /// # Args
     ///
@@ -95,8 +95,10 @@ impl MarkovDatabaseReadExt for Markov {
                 markovs.time_to_leave,
                 markovs.weight
             FROM
-                markovs, exes AS exe_a, exes AS exe_b
-            WHERE
+                markovs
+            INNER JOIN
+                exes AS exe_a, exes AS exe_b
+            ON
                 exe_a.id = markovs.exe_a AND exe_b.id = markovs.exe_b
         "#
         )
@@ -110,10 +112,10 @@ impl MarkovDatabaseReadExt for Markov {
 
             let exe_a = exes
                 .get(&exe_a_path)
-                .ok_or_else(|| Error::ExeSeqNotAssigned(exe_a_path))?;
+                .ok_or_else(|| Error::ExeDoesNotExist(exe_a_path))?;
             let exe_b = exes
                 .get(&exe_b_path)
-                .ok_or_else(|| Error::ExeSeqNotAssigned(exe_b_path))?;
+                .ok_or_else(|| Error::ExeDoesNotExist(exe_b_path))?;
             let time_to_leave: [f32; 4] = bincode::deserialize(&record.time_to_leave)?;
             let weight: [[u32; 4]; 4] = bincode::deserialize(&record.weight)?;
 
@@ -179,10 +181,7 @@ mod tests {
         // where n is the number of exes
         let mut markovs = vec![];
         for (exe_a, exe_b) in exes.values().circular_tuple_windows() {
-            let markov = exe_a
-                .build_markov_chain_with(&exe_b, 1, 2)
-                .unwrap()
-                .unwrap();
+            let markov = exe_a.build_markov_chain_with(exe_b, 1, 2).unwrap().unwrap();
             markov.write(&pool).await.unwrap();
             markovs.push(markov);
         }

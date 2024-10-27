@@ -91,7 +91,8 @@ pub async fn write_bad_exe(
 
 #[async_trait::async_trait]
 pub trait ExeDatabaseReadExt: Sized {
-    /// Read exes from the database.
+    /// Read exes from the database. The returned exes are stripped of their
+    /// sequence numbers.
     ///
     /// Once read, make sure [`State`](crate::State) registers these.
     async fn read_all(pool: &SqlitePool) -> Result<HashMap<PathBuf, Self>, Error>;
@@ -111,14 +112,14 @@ impl ExeDatabaseReadExt for Exe {
         .fetch_all(pool)
         .await?;
 
-        let exes: HashMap<_, _> = records
+        let exes = records
             .into_iter()
             .map(|row| {
                 let exe = Exe::new(&row.path);
                 if let Some(update_time) = row.update_time {
                     exe.set_update_time(update_time);
                 }
-                exe.set_seq(row.id);
+                // TODO: do we need exe.set_seq(row.id);
                 exe.set_time(row.time);
                 (PathBuf::from(row.path), exe)
             })
@@ -128,6 +129,9 @@ impl ExeDatabaseReadExt for Exe {
 }
 
 /// Read bad exes from the database.
+///
+/// Returned value is a vector of tuples where the first element is the path of
+/// the bad exe and the second element is the update time.
 pub async fn read_bad_exes(pool: &SqlitePool) -> Result<Vec<(PathBuf, u64)>, Error> {
     let mut tx = pool.begin().await?;
     let bad_exes = sqlx::query!(
@@ -151,6 +155,7 @@ pub async fn read_bad_exes(pool: &SqlitePool) -> Result<Vec<(PathBuf, u64)>, Err
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[sqlx::test]
     async fn write_exe(pool: SqlitePool) {
@@ -198,7 +203,7 @@ mod tests {
         assert_eq!(exes.len(), exes_read.len());
         for (path, exe) in exes {
             let read_exe = exes_read.get(&path).expect("Exe not found");
-            assert_eq!(exe.seq(), read_exe.seq());
+            assert!(read_exe.seq().is_none());
             assert_eq!(exe.0.lock().time, read_exe.0.lock().time);
             assert_eq!(exe.0.lock().update_time, read_exe.0.lock().update_time);
         }

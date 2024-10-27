@@ -132,7 +132,7 @@ impl StateInner {
         Ok((size, exemaps))
     }
 
-    fn register_map(&mut self, map: Map) {
+    pub(crate) fn register_map(&mut self, map: Map) {
         if self.maps.contains(&map) {
             return;
         }
@@ -142,7 +142,7 @@ impl StateInner {
     }
 
     #[tracing::instrument(skip(self))]
-    fn proc_foreach(&mut self) {
+    pub(crate) fn proc_foreach(&mut self) {
         trace!("Refresh system info");
         self.sysinfo.refresh_specifics(self.system_refresh_kind);
         // NOTE: we `take` the sysinfo to avoid borrowing issues when looping.
@@ -219,7 +219,7 @@ impl StateInner {
     }
 
     #[tracing::instrument(skip(self, exe))]
-    fn register_exe(&mut self, exe: Exe, create_markovs: bool) {
+    pub(crate) fn register_exe(&mut self, exe: Exe, create_markovs: bool) {
         exe.set_seq(self.exe_seq);
         self.exe_seq += 1;
         trace!(?exe, "registering exe");

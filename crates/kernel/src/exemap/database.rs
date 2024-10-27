@@ -1,9 +1,12 @@
 #![allow(clippy::mutable_key_type)]
 
 use super::ExeMap;
-use crate::{database::DatabaseWriteExt, Error, Map};
+use crate::{database::DatabaseWriteExt, Error, Exe, Map};
 use sqlx::SqlitePool;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+};
 
 #[async_trait::async_trait]
 impl DatabaseWriteExt for ExeMap {
@@ -56,39 +59,58 @@ pub trait ExeMapDatabaseReadExt: Sized {
     ///
     /// Ideally you would call this function after you have read the maps from
     /// the database.
-    async fn read_all(pool: &SqlitePool, maps: &HashMap<u64, Map>) -> Result<HashSet<Self>, Error>;
+    async fn read_all(
+        pool: &SqlitePool,
+        maps: &HashMap<u64, Map>,
+        exes: &HashMap<PathBuf, Exe>,
+    ) -> Result<HashSet<Self>, Error>;
 }
 
 #[async_trait::async_trait]
 impl ExeMapDatabaseReadExt for ExeMap {
-    async fn read_all(pool: &SqlitePool, maps: &HashMap<u64, Map>) -> Result<HashSet<Self>, Error> {
+    async fn read_all(
+        pool: &SqlitePool,
+        maps: &HashMap<u64, Map>,
+        exes: &HashMap<PathBuf, Exe>,
+    ) -> Result<HashSet<Self>, Error> {
         let records = sqlx::query!(
             r#"
             SELECT
-                exe_id,
-                map_id,
+                exes.path as exe_path,
+                map_id as "map_id: u64",
                 prob as "prob: f32"
             FROM
                 exemaps
+            JOIN
+                exes
+            ON
+                exe_id = exes.id
             "#
         )
         .fetch_all(pool)
         .await?;
 
-        let mut exe_maps = HashSet::new();
+        let mut exemaps = HashSet::new();
         for record in records {
-            let exe_id = record.exe_id as u64;
-            let map_id = record.map_id as u64;
+            let map_id = record.map_id;
             let prob = record.prob;
+            let map = maps
+                .get(&map_id)
+                .ok_or_else(|| Error::MapDoesNotExist(map_id))?;
+            let exe = exes
+                .get(Path::new(&record.exe_path))
+                .ok_or_else(|| Error::ExeDoesNotExist(record.exe_path.into()))?;
 
-            if let Some(map) = maps.get(&map_id) {
-                let exe_map = ExeMap::new(map.clone())
-                    .with_exe_seq(exe_id)
-                    .with_prob(prob);
-                exe_maps.insert(exe_map);
+            let exemap = ExeMap::new(map.clone()).with_prob(prob);
+            // register exemap with exe
+            {
+                let mut lock = exe.0.lock();
+                lock.exemaps.insert(exemap.clone());
+                lock.size += exemap.map.length();
             }
+            exemaps.insert(exemap);
         }
-        Ok(exe_maps)
+        Ok(exemaps)
     }
 }
 
@@ -126,17 +148,18 @@ mod tests {
         }
 
         // write the exes to the database with their sequence numbers
-        let mut exes = vec![];
+        let mut exes = HashMap::new();
         for i in 0..10 {
-            let exe = Exe::new(format!("foo/bar/{i}"));
+            let path = PathBuf::from(format!("foo/bar/{i}"));
+            let exe = Exe::new(&path);
             exe.set_seq(i);
             exe.write(&pool).await.unwrap();
-            exes.push(exe);
+            exes.insert(path, exe);
         }
 
         // write the exemaps to the database
         let mut exe_maps = HashSet::new();
-        for (map, exe) in maps.values().zip_eq(&exes) {
+        for (map, exe) in maps.values().zip_eq(exes.values()) {
             // we are bound to have the sequence number for the exe
             let exemap = ExeMap::new(map.clone()).with_exe_seq(exe.seq().unwrap());
             exemap.write(&pool).await.unwrap();
@@ -146,7 +169,7 @@ mod tests {
         // maps are needed to read the exemaps
         let maps_read = Map::read_all(&pool).await.unwrap();
         // read the exemaps from the database
-        let exe_maps_read = ExeMap::read_all(&pool, &maps_read).await.unwrap();
+        let exe_maps_read = ExeMap::read_all(&pool, &maps_read, &exes).await.unwrap();
 
         assert_eq!(exe_maps, exe_maps_read);
     }

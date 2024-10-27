@@ -67,6 +67,20 @@ impl Exe {
         res
     }
 
+    /// Set the markov's running state based on the running status of the associated exes.
+    pub fn set_markov_state(&self, last_running_timestamp: u64) -> Result<(), Error> {
+        let markovs = std::mem::take(&mut self.0.lock().markovs);
+        let path = self.path();
+        let res = markovs.iter().try_for_each(|markov| {
+            if extract_exe!(markov.0.lock().exe_a).path == path {
+                markov.set_state(last_running_timestamp)?;
+            }
+            Ok(())
+        });
+        self.0.lock().markovs = markovs;
+        res
+    }
+
     pub fn markov_state_changed(
         &self,
         state_time: u64,

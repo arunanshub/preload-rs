@@ -1,9 +1,9 @@
-mod database;
+pub(crate) mod database;
 mod inner;
 
 use crate::{
     database::{create_database_pool, DatabaseWriteExt},
-    Error, MIGRATOR,
+    Error, StateDatabaseReadExt, MIGRATOR,
 };
 use config::Config;
 use inner::StateInner;
@@ -56,6 +56,7 @@ impl State {
         MIGRATOR.run(&self.pool).await?;
 
         let state = self.inner;
+        state.write().await.read_all(&self.pool).await?;
         loop {
             state.write().await.scan_and_predict()?;
             time::sleep(state.read().await.config.model.cycle / 2).await;

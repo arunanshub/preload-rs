@@ -1,13 +1,18 @@
 #![allow(clippy::mutable_key_type)]
 
 use super::inner::StateInner;
-use crate::{database::DatabaseWriteExt, exe::database::write_bad_exe, Error};
+use crate::{
+    database::DatabaseWriteExt,
+    exe::database::{read_bad_exes, write_bad_exe},
+    Error, Exe, ExeDatabaseReadExt, ExeMap, ExeMapDatabaseReadExt, Map, MapDatabaseReadExt, Markov,
+    MarkovDatabaseReadExt,
+};
 use sqlx::SqlitePool;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
 };
-use tracing::trace;
+use tracing::{debug, info, trace};
 
 #[async_trait::async_trait]
 impl DatabaseWriteExt for StateInner {
@@ -151,5 +156,74 @@ impl DatabaseWriteExt for StateInner {
         }
         trace!(?num_ops, "database operations performed");
         Ok(num_ops.load(Ordering::Relaxed))
+    }
+}
+
+#[async_trait::async_trait]
+pub trait StateDatabaseReadExt {
+    /// Read the state from the database with the given SQLite pool.
+    async fn read_all(&mut self, pool: &SqlitePool) -> Result<(), Error>;
+}
+
+#[async_trait::async_trait]
+impl StateDatabaseReadExt for StateInner {
+    async fn read_all(&mut self, pool: &SqlitePool) -> Result<(), Error> {
+        let record = sqlx::query!(
+            r#"
+            SELECT
+                version as "version: u64", time as "time: u64"
+            FROM
+                state
+            WHERE
+                version = ?
+        "#,
+            env!("CARGO_PKG_VERSION")
+        )
+        .fetch_optional(pool)
+        .await?;
+        let Some(record) = record else {
+            info!("No state found in the database. Looks like we are starting from scratch.");
+            return Ok(());
+        };
+
+        self.last_accounting_timestamp = record.time;
+        self.time = record.time;
+
+        debug!("Reading maps, exes, and bad exes from the database");
+        let map_fut = tokio::spawn({
+            let pool = pool.clone();
+            async move { Map::read_all(&pool).await }
+        });
+        let exes_fut = tokio::spawn({
+            let pool = pool.clone();
+            async move { Exe::read_all(&pool).await }
+        });
+        let bad_exes_fut = tokio::spawn({
+            let pool = pool.clone();
+            async move { read_bad_exes(&pool).await }
+        });
+        let (maps, exes, bad_exes) = tokio::try_join!(map_fut, exes_fut, bad_exes_fut)?;
+        let (maps, exes, bad_exes) = (maps?, exes?, bad_exes?);
+        debug!("Finished reading maps, exes, and bad_exes from the database");
+
+        // register maps, exes, and bad exes
+        for map in maps.values() {
+            self.register_map(map.clone());
+        }
+        self.bad_exes = bad_exes.into_iter().collect();
+        for exe in exes.values() {
+            self.register_exe(exe.clone(), false);
+        }
+        // markovs and exemaps are implicitly registered by the exes
+        Markov::read_all(pool, &exes, self.time, self.last_running_timestamp).await?;
+        ExeMap::read_all(pool, &maps, &exes).await?;
+
+        self.proc_foreach();
+        self.last_running_timestamp = self.time;
+        for exe in exes.values() {
+            exe.set_markov_state(self.last_running_timestamp)?;
+        }
+
+        Ok(())
     }
 }

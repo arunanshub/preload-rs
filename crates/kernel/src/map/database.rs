@@ -57,6 +57,8 @@ impl DatabaseWriteExt for Map {
 #[async_trait::async_trait]
 pub trait MapDatabaseReadExt: Sized {
     /// Read all maps from the database.
+    ///
+    /// The returned maps are stripped of their sequence numbers.
     async fn read_all(pool: &SqlitePool) -> Result<HashMap<u64, Self>, Error>;
 }
 
@@ -87,7 +89,6 @@ impl MapDatabaseReadExt for Map {
                     record.length,
                     record.update_time,
                 );
-                map.set_seq(record.id);
                 (record.id, map)
             })
             .collect();
