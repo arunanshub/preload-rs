@@ -4,8 +4,6 @@ bitflags! {
     #[repr(transparent)]
     #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
     pub struct MarkovState: u8 {
-        // avoiding zero-bit flag since it is always contained, but is never
-        // intersected
         const NeitherRunning = 0b00;
         const ExeARunning = 0b01;
         const ExeBRunning = 0b10;
