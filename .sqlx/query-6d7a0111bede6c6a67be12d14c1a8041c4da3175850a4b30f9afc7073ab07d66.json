@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                id as \"id: u64\", path, update_time as \"update_time: u64\", time as \"time: u64\"\n            FROM\n                exes\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: u64",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "update_time: u64",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "time: u64",
+        "ordinal": 3,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "6d7a0111bede6c6a67be12d14c1a8041c4da3175850a4b30f9afc7073ab07d66"
+}

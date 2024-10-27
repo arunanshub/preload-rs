@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                version as \"version: u64\", time as \"time: u64\"\n            FROM\n                state\n            WHERE\n                version = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "version: u64",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "time: u64",
+        "ordinal": 1,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "676def96df6d6ccd1a9259d3bd317c202b2dd9c9c8fc8037fee76ad2bae3c453"
+}

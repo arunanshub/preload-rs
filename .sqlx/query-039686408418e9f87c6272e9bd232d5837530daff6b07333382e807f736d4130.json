@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                exes.path as exe_path,\n                map_id as \"map_id: u64\",\n                prob as \"prob: f32\"\n            FROM\n                exemaps\n            JOIN\n                exes\n            ON\n                exe_id = exes.id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "exe_path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "map_id: u64",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "prob: f32",
+        "ordinal": 2,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "039686408418e9f87c6272e9bd232d5837530daff6b07333382e807f736d4130"
+}

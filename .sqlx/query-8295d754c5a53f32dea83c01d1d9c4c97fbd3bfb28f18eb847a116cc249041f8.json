@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                exe_a.path AS exe_a_path,\n                exe_b.path AS exe_b_path,\n                markovs.time,\n                markovs.time_to_leave,\n                markovs.weight\n            FROM\n                markovs\n            INNER JOIN\n                exes AS exe_a, exes AS exe_b\n            ON\n                exe_a.id = markovs.exe_a AND exe_b.id = markovs.exe_b\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "exe_a_path",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "exe_b_path",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "time",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "time_to_leave",
+        "ordinal": 3,
+        "type_info": "Blob"
+      },
+      {
+        "name": "weight",
+        "ordinal": 4,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8295d754c5a53f32dea83c01d1d9c4c97fbd3bfb28f18eb847a116cc249041f8"
+}

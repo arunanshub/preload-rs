@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                id as \"id: u64\",\n                update_time as \"update_time: u64\",\n                offset as \"offset: u64\",\n                length as \"length: u64\",\n                path\n            FROM\n                maps\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id: u64",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "update_time: u64",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "offset: u64",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "length: u64",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "path",
+        "ordinal": 4,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "ffe17c6b8c64f7cd54611bf92d6f588b4172317b63593aec3d4a12897e3b1474"
+}
