@@ -292,13 +292,13 @@ impl StateInner {
         let state_changed_exes = mem::take(&mut self.state_changed_exes);
         trace!(num = state_changed_exes.len(), "Exes that changed state");
         state_changed_exes
-            .par_iter()
+            .iter()
             .try_for_each(|exe| self.exe_changed_callback(exe))?;
         trace!("Exes state changed");
 
         // do some accounting
         let period = self.time - self.last_accounting_timestamp;
-        self.exes.par_iter().for_each(|(_, exe)| {
+        self.exes.iter().for_each(|(_, exe)| {
             if exe.is_running(self.last_running_timestamp) {
                 exe.set_time(period);
             }
@@ -306,7 +306,7 @@ impl StateInner {
         trace!("Exe time updated");
 
         self.exes
-            .par_iter()
+            .iter()
             .try_for_each(|(_, exe)| exe.increase_markov_time(period))?;
         trace!("Markov time updated");
 
@@ -322,10 +322,10 @@ impl StateInner {
     #[tracing::instrument(skip(self))]
     fn prophet_predict(&mut self) -> Result<(), Error> {
         // reset probabilities that we are going to compute
-        self.exes.par_iter().for_each(|(_, exe)| exe.zero_lnprob());
+        self.exes.iter().for_each(|(_, exe)| exe.zero_lnprob());
         self.maps.par_iter().for_each(|map| map.zero_lnprob());
 
-        self.exes.par_iter().try_for_each(|(_, exe)| {
+        self.exes.iter().try_for_each(|(_, exe)| {
             exe.markov_bid_in_exes(
                 self.config.model.usecorrelation,
                 self.time,
@@ -335,14 +335,14 @@ impl StateInner {
         trace!("Markov is done bidding in exes");
 
         if enabled!(Level::TRACE) {
-            self.exes.par_iter().for_each(|(_, exe)| {
+            self.exes.iter().for_each(|(_, exe)| {
                 trace!(lnprob=exe.lnprob(), path=?exe.path(), "lnprob of exes");
             });
         }
 
         // exes bid in maps
         self.exes
-            .par_iter()
+            .iter()
             .for_each(|(_, exe)| exe.bid_in_maps(self.last_running_timestamp));
 
         // may not be required if maps stored as BTreeMap
