@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0.210", features = ["derive"] }
+serde = { version = "1.0.213", features = ["derive"] }
 serde_with = "3.11.0"
 thiserror.workspace = true
 toml_edit = { version = "0.22.22", features = ["serde"] }
