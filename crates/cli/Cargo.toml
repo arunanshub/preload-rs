@@ -14,7 +14,7 @@ flume.workspace = true
 anyhow = { version = "1.0.91", features = ["backtrace"] }
 clap = "4.5.20"
 clap-verbosity-flag = "2.2.2"
-tokio = { version = "1.40.0", features = ["macros", "parking_lot", "rt-multi-thread", "signal", "time"] }
+tokio = { version = "1.41.0", features = ["macros", "parking_lot", "rt-multi-thread", "signal", "time"] }
 tracing-subscriber = "0.3.18"
 tracing-log = "0.2.0"
 
