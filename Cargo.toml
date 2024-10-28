@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-thiserror = "1.0.64"
+thiserror = "1.0.65"
 tracing = "0.1.40"
 proptest = "1.5.0"
 flume = "0.11.1"
