@@ -8,17 +8,32 @@ use preload_rs::{
 };
 use tokio::time;
 use tracing::{debug, error};
-use tracing_log::AsTrace;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    debug!(?cli);
-    tracing_subscriber::fmt()
-        .with_max_level(cli.verbosity.log_level_filter().as_trace())
+
+    // NOTE: The verbosity flag takes precedence over the environment variable
+    // for log control. For example, `PRELOAD_LOG=warn preload-rs -vvv` will
+    // still log at the trace level. The environment variable (`PRELOAD_LOG`)
+    // can only set the log level per crate, not override the verbosity flag.
+    // Eg. `PRELOAD_LOG=kernel=warn preload-rs -vvv` will log at the trace level
+    // for all crates except `kernel` which will log at the warn level.
+    let env_filter = EnvFilter::builder()
+        .with_default_directive("sqlx=warn".parse()?)
+        .with_env_var("PRELOAD_LOG")
+        .from_env()?
+        .add_directive(cli.verbosity.log_level_filter().as_str().parse()?);
+
+    let layer = tracing_subscriber::fmt::layer()
         .with_level(true)
-        .with_file(true)
-        .with_line_number(true)
+        .with_file(false)
+        .with_line_number(false);
+
+    tracing_subscriber::registry()
+        .with(layer)
+        .with(env_filter)
         .init();
 
     // load config
