@@ -57,7 +57,7 @@ pub struct Model {
 impl Default for Model {
     fn default() -> Self {
         Self {
-            cycle: Duration::from_secs(2),
+            cycle: Duration::from_secs(20),
             usecorrelation: true,
             minsize: 2_000_000,
             memtotal: -10,
