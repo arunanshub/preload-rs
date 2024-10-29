@@ -67,12 +67,18 @@ jobs:
       - name: Combine coverage
         run: cargo llvm-cov report --lcov --output-path coverage.lcov
 
-      # TODO: uncomment me once we are a public repo
       - name: Upload Coverage Report 📤
         uses: coverallsapp/github-action@v2.3.4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: ./coverage.lcov
+
+      # TODO: remove me when coveralls does not pause for a long while even
+      # after workflow steps are finished
+      - name: Force mark Coveralls build as finished
+        uses: coverallsapp/github-action@v2.3.4
+        with:
+          parallel-finished: true
 
   nightly:
     if: github.event.schedule == '0 0 * * *' && github.ref == 'refs/heads/master'
