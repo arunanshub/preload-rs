@@ -71,7 +71,6 @@ jobs:
       - name: Upload Coverage Report 📤
         uses: coverallsapp/github-action@v2.3.4
         with:
-          parallel: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: ./coverage.lcov
 
