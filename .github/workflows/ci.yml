@@ -61,26 +61,15 @@ jobs:
       - name: Run doctests
         run: cargo test --doc --all-features --workspace
 
-      - name: Run tests
-        run: cargo llvm-cov --no-report nextest --all-features --workspace
+      - name: Run tests and generate coverage
+        run: |
+          cargo llvm-cov --codecov --output-path coverage.cov nextest --all-features --workspace
 
-      - name: Combine coverage
-        run: cargo llvm-cov report --lcov --output-path coverage.lcov
-
-      - name: Upload Coverage Report 📤
-        uses: coverallsapp/github-action@v2.3.4
+      - name: Upload Coverage Report to Codecov
+        uses: codecov/codecov-action@v4.6.0
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: ./coverage.lcov
-          parallel: true
-          flag-name: coverage-remove-me-when-coveralls-does-not-pause
-
-      # TODO: remove me when coveralls does not pause for a long while even
-      # after workflow steps are finished
-      - name: Force mark Coveralls build as finished
-        uses: coverallsapp/github-action@v2.3.4
-        with:
-          parallel-finished: true
+          files: coverage.cov
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   nightly:
     if: github.event.schedule == '0 0 * * *' && github.ref == 'refs/heads/master'
