@@ -13,6 +13,7 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     mem,
     path::{Path, PathBuf},
+    sync::{atomic::AtomicU64, Arc},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 use tracing::{debug, enabled, error, trace, warn, Level};
@@ -376,7 +377,7 @@ impl StateInner {
         // XXX: we only readahead a subset of all maps. Maybe find a better way
         // to select maps to readahead without additional vec allocation.
         let mut maps_to_readahead = vec![];
-        let mut num_maps_readahead = 0;
+        let mut num_maps_to_readahead = 0;
 
         let mut maps_iter = self.maps.iter().sorted_by(|a, b| {
             a.lnprob()
@@ -384,8 +385,8 @@ impl StateInner {
                 .unwrap_or(Ordering::Equal)
         });
         // XXX: clean up the loop
-        while num_maps_readahead < maps_iter.len() {
-            let Some(map) = maps_iter.nth(num_maps_readahead) else {
+        while num_maps_to_readahead < maps_iter.len() {
+            let Some(map) = maps_iter.nth(num_maps_to_readahead) else {
                 error!("Map not found. Please report a bug!");
                 break;
             };
@@ -406,12 +407,12 @@ impl StateInner {
                 );
             }
 
-            num_maps_readahead += 1;
+            num_maps_to_readahead += 1;
             maps_to_readahead.push(map);
         }
 
-        if num_maps_readahead > 0 {
-            self.preload_readahead(&mut maps_to_readahead);
+        if num_maps_to_readahead > 0 {
+            let num_maps_readahead = self.preload_readahead(&mut maps_to_readahead);
             let num_maps = self.maps.len();
             debug!(
                 num_maps_readahead,
@@ -425,7 +426,7 @@ impl StateInner {
     }
 
     #[tracing::instrument(skip_all)]
-    fn preload_readahead(&self, maps: &mut [&Map]) {
+    fn preload_readahead(&self, maps: &mut [&Map]) -> u64 {
         // sort files
         if let Some(sort_strategy) = self.config.system.sortstrategy {
             trace!("Sorting {} maps by {:?}.", maps.len(), sort_strategy);
@@ -458,14 +459,19 @@ impl StateInner {
             }
         }
 
-        maps.par_iter().for_each(|map| {
-            // TODO: if (path && offset <= files[i]->offset ...) {}
-            if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64) {
-                warn!(path=?map.path(), %error, "Failed to readahead");
-            } else {
-                trace!(?map, "Readahead done.");
-            }
-        });
+        let num_readahead = Arc::new(AtomicU64::new(0));
+        maps.par_iter()
+            .for_each_with(num_readahead.clone(), |counter, map| {
+                // TODO: if (path && offset <= files[i]->offset ...) {}
+                if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64)
+                {
+                    warn!(path=?map.path(), %error, "Failed to readahead");
+                } else {
+                    counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    trace!(?map, "Readahead done.");
+                }
+            });
+        num_readahead.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     #[tracing::instrument(skip_all)]

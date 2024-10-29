@@ -87,17 +87,15 @@ impl Default for System {
             autosave: Duration::from_secs(3600),
             // TODO: can use mapexclude and exeexclude
             mapprefix: vec![
-                PathBuf::from("/opt"),
-                PathBuf::from("!/usr/sbin/"),
-                PathBuf::from("!/usr/local/sbin/"),
-                PathBuf::from("!/usr/"),
+                PathBuf::from("/usr/"),
+                PathBuf::from("/lib/"),
+                PathBuf::from("/var/cache/"),
                 PathBuf::from("!/"),
             ],
             exeprefix: vec![
-                "/opt".into(),
                 "!/usr/sbin/".into(),
                 "!/usr/local/sbin/".into(),
-                "!/usr/".into(),
+                "/usr/".into(),
                 "!/".into(),
             ],
             processes: 30,
