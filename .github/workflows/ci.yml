@@ -72,6 +72,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: ./coverage.lcov
+          parallel: true
+          flag-name: coverage-remove-me-when-coveralls-does-not-pause
 
       # TODO: remove me when coveralls does not pause for a long while even
       # after workflow steps are finished
