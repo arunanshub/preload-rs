@@ -460,17 +460,17 @@ impl StateInner {
         }
 
         let num_readahead = Arc::new(AtomicU64::new(0));
-        maps.par_iter().for_each(|map| {
-            // TODO: if (path && offset <= files[i]->offset ...) {}
-            if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64) {
-                warn!(path=?map.path(), %error, "Failed to readahead");
-            } else {
-                num_readahead
-                    .clone()
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                trace!(?map, "Readahead done.");
-            }
-        });
+        maps.par_iter()
+            .for_each_with(num_readahead.clone(), |counter, map| {
+                // TODO: if (path && offset <= files[i]->offset ...) {}
+                if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64)
+                {
+                    warn!(path=?map.path(), %error, "Failed to readahead");
+                } else {
+                    counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    trace!(?map, "Readahead done.");
+                }
+            });
         num_readahead.load(std::sync::atomic::Ordering::Relaxed)
     }
 
