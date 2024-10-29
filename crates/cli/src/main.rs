@@ -7,7 +7,7 @@ use preload_rs::{
     signals::{wait_for_signal, SignalEvent},
 };
 use tokio::time;
-use tracing::{debug, error};
+use tracing::{debug, error, trace};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
@@ -39,9 +39,16 @@ async fn main() -> anyhow::Result<()> {
     // load config
     let config = match &cli.conffile {
         Some(path) => Config::load(path)?,
-        _ => Config::new(),
+        _ => {
+            let mut candidates = glob::glob("/etc/preload-rs/config.d/*.toml")?
+                .filter_map(Result::ok)
+                .collect::<Vec<_>>();
+            candidates.insert(0, "/etc/preload-rs/config.toml".into());
+            trace!(?candidates, "config file candidates");
+            Config::load_multiple(candidates)?
+        }
     };
-    debug!(?config);
+    debug!(?config, ?cli);
 
     // install signal handlers
     let (signals_tx, signals_rx) = bounded(8);

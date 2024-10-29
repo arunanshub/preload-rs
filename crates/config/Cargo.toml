@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+figment = { version = "0.10.19", features = ["toml"] }
 serde = { version = "1.0.213", features = ["derive"] }
 serde_with = "3.11.0"
 thiserror.workspace = true

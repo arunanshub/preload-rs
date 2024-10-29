@@ -11,7 +11,10 @@ use std::path::{Path, PathBuf};
 pub struct Cli {
     /// Path to configuration file.
     ///
-    /// Empty string means no conf file.
+    /// If not provided, the default locations are checked. They are
+    /// `/etc/preload-rs/config.toml` and `/etc/preload-rs/config.d/*.toml`,
+    /// where the latter being a glob pattern. If they don't exist, the default
+    /// configuration is used.
     #[arg(short, long, value_parser = validate_file)]
     pub conffile: Option<PathBuf>,
 

@@ -4,6 +4,10 @@ mod sort_strategy;
 mod system;
 
 pub use error::Error;
+use figment::{
+    providers::{Format, Serialized, Toml},
+    Figment,
+};
 pub use model::Model;
 use serde::{Deserialize, Serialize};
 pub use sort_strategy::SortStrategy;
@@ -21,10 +25,30 @@ impl Config {
         Self::default()
     }
 
-    /// Load the configuration file from a path.
+    /// Load the configuration file from a path. The file **must exist**.
+    ///
+    /// Any missing fields are filled with default values. If you want to load
+    /// and merge multiple files at once, or if the file(s) may or may not exist,
+    /// use [`load_multiple`](Self::load_multiple).
     pub fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
-        let config = std::fs::read_to_string(path)?;
-        Ok(toml_edit::de::from_str(&config)?)
+        Ok(Figment::from(Serialized::defaults(Self::new()))
+            .merge(Toml::file_exact(path))
+            .extract()?)
+    }
+
+    /// Load configuration from multiple paths and merge them together.
+    ///
+    /// If the file does not exist, it is skipped.
+    pub fn load_multiple<T, U>(paths: U) -> Result<Self, Error>
+    where
+        T: AsRef<Path>,
+        U: IntoIterator<Item = T>,
+    {
+        let mut partial = Figment::from(Serialized::defaults(Self::new()));
+        for path in paths {
+            partial = partial.merge(Toml::file(path));
+        }
+        Ok(partial.extract()?)
     }
 
     /// Save configuration to a file.
@@ -50,7 +74,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
+    use std::{fs::write, time::Duration};
     use tempfile::tempdir;
 
     #[test]
@@ -82,5 +106,41 @@ mod tests {
         // the loaded config should match the modified one
         let config3 = Config::save_and_load(&file).unwrap();
         assert_eq!(config2, config3);
+    }
+
+    #[test]
+    fn load_partial() {
+        let dir = tempdir().unwrap();
+        let mut partial1 = dir.path().join("config1.toml");
+        let mut partial2 = dir.path().join("config2.toml");
+        let existent_but_empty = dir.path().join("existent_but_empty.toml");
+
+        write(
+            &mut partial1,
+            r#"
+        [model]
+        cycle = 42069
+        usecorrelation = true
+        "#,
+        )
+        .unwrap();
+        write(
+            &mut partial2,
+            r#"
+        [system]
+        sortstrategy = "path"
+        "#,
+        )
+        .unwrap();
+
+        let conf = Config::load_multiple(&[
+            partial1,
+            "nonexistent.toml".into(),
+            existent_but_empty,
+            partial2,
+        ])
+        .unwrap();
+        assert_eq!(conf.model.cycle, Duration::from_secs(42069));
+        assert_eq!(conf.system.sortstrategy, Some(SortStrategy::Path));
     }
 }
