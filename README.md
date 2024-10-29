@@ -1,5 +1,7 @@
 # preload-rs
 
+[![Coverage Status](https://coveralls.io/repos/github/arunanshub/preload-rs/badge.svg?branch=master)](https://coveralls.io/github/arunanshub/preload-rs?branch=master)
+
 `preload-rs` is a daemon process that prefetches binary files and shared libraries
 from the hard disc to the main memory of the computer system to achieve faster
 application startup time. `preload-rs` is adaptive: it monitors the application that
