@@ -107,10 +107,7 @@ mod tests {
 
         let markov = Markov::new(exe_a.for_markov(), exe_b.for_markov());
         drop(exe_a);
-        if let Err(err) = markov.with_initialize(1, 1) {
-            assert!(matches!(err, Error::ExeMarkovDeallocated));
-        } else {
-            panic!()
-        };
+        let err = markov.with_initialize(1, 1).unwrap_err();
+        assert!(matches!(err, Error::ExeMarkovDeallocated));
     }
 }
