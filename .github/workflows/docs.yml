@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
 
 # For more info: https://stackoverflow.com/a/74167257/11663108
 permissions:
