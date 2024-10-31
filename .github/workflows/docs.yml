@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build docs
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,15 +27,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.6
-
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
 
       - name: Clean docs folder
         run: cargo clean --doc
 
+      # TODO: for now document private items, once the documentation and cleanup is done
+      # remove it
       - name: Build docs
         run: cargo doc --no-deps --document-private-items
 
