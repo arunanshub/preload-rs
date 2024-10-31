@@ -1,3 +1,5 @@
+name: Docs
+
 on:
   workflow_dispatch:
   push:
@@ -17,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
