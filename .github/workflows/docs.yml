@@ -22,7 +22,7 @@ jobs:
     name: Build docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,6 +41,10 @@ jobs:
 
       - name: Remove lock
         run: rm target/doc/.lock
+
+      - name: Add redirect
+        run: |
+          echo '<meta http-equiv="refresh" content="0; url=kernel/index.html" />' > target/doc/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
