@@ -1,5 +1,6 @@
 # preload-rs
 
+[![CI](https://github.com/arunanshub/preload-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/arunanshub/preload-rs/actions/workflows/ci.yml)
 [![codecov](https://img.shields.io/codecov/c/github/arunanshub/preload-rs?logo=codecov)](https://codecov.io/github/arunanshub/preload-rs)
 
 `preload-rs` is a daemon process that prefetches binary files and shared libraries
