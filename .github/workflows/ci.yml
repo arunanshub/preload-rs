@@ -63,7 +63,7 @@ jobs:
 
       - name: Run tests and generate coverage
         run: |
-          cargo llvm-cov --codecov --output-path coverage.cov nextest --all-features --workspace
+          cargo llvm-cov --lcov --output-path coverage.cov nextest --all-features --workspace
 
       - name: Upload Coverage Report to Codecov
         uses: codecov/codecov-action@v4.6.0
