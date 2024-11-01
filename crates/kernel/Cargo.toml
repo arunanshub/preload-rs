@@ -20,7 +20,7 @@ rayon = "1.10.0"
 sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
 sysinfo = "0.32.0"
 thiserror.workspace = true
-tokio = { version = "1.41.0", features = ["sync", "time"] }
+tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
@@ -28,7 +28,7 @@ futures = { version = "0.3.31", default-features = false }
 pretty_assertions = "1.4.1"
 proptest.workspace = true
 tempfile = "3.13.0"
-tokio = { version = "1.41.0", features = ["macros", "test-util"] }
+tokio = { workspace = true, features = ["macros", "test-util"] }
 tokio-test = "0.4.4"
 
 [features]
