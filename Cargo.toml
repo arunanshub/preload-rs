@@ -11,7 +11,7 @@ thiserror = "2.0.3"
 tracing = "0.1.41"
 proptest = "1.5.0"
 flume = "0.11.1"
-tokio = { version = "1.41.1", features = ["macros", "parking_lot", "rt-multi-thread", "signal"] }
+tokio = { version = "1.42.0", features = ["macros", "parking_lot", "rt-multi-thread", "signal"] }
 
 [profile.release]
 lto = true
