@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 # inter-crate
-config = { version = "0.1.0", path = "../config" }
+config = { version = "0.14.0", path = "../config" }
 kernel = { version = "0.1.0", path = "../kernel" }
 # workspace dependencies
 thiserror.workspace = true
