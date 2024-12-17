@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 figment = { version = "0.10.19", features = ["toml"] }
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1.0.216", features = ["derive"] }
 serde_with = "3.11.0"
 thiserror.workspace = true
 toml_edit = { version = "0.22.22", features = ["serde"] }
