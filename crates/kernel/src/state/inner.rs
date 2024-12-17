@@ -61,8 +61,8 @@ pub(crate) struct StateInner {
 impl StateInner {
     #[tracing::instrument(skip_all)]
     pub fn new(mut config: Config) -> Self {
-        let system_refresh_kind = RefreshKind::new().with_processes(
-            ProcessRefreshKind::new()
+        let system_refresh_kind = RefreshKind::nothing().with_processes(
+            ProcessRefreshKind::nothing()
                 .with_exe(UpdateKind::OnlyIfNotSet)
                 .with_memory(),
         );
