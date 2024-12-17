@@ -7,7 +7,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-thiserror = "2.0.6"
+thiserror = "2.0.7"
 tracing = "0.1.41"
 proptest = "1.5.0"
 flume = "0.11.1"
