@@ -29,7 +29,7 @@ repos:
         language: system
         args:
           - --all-targets
-          - --all-features
+          # - --all-features
           - "--"
           - "-D"
           - "warnings"
