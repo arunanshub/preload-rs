@@ -13,7 +13,7 @@ thiserror.workspace = true
 tracing.workspace = true
 flume.workspace = true
 tokio.workspace = true
-anyhow = { version = "1.0.94", features = ["backtrace"] }
+anyhow = { version = "1.0.95", features = ["backtrace"] }
 clap = { version = "4.5.23", features = ["wrap_help"] }
 clap-verbosity-flag = "3.0.1"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
