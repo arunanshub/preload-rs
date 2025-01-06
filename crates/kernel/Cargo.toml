@@ -27,7 +27,7 @@ tracing.workspace = true
 futures = { version = "0.3.31", default-features = false }
 pretty_assertions = "1.4.1"
 proptest.workspace = true
-tempfile = "3.14.0"
+tempfile = "3.15.0"
 tokio = { workspace = true, features = ["macros", "test-util"] }
 tokio-test = "0.4.4"
 
