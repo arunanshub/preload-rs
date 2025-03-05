@@ -1,5 +1,5 @@
 use super::Markov;
-use crate::{database::DatabaseWriteExt, extract_exe, Error, Exe};
+use crate::{Error, Exe, database::DatabaseWriteExt, extract_exe};
 use bincode::serialize;
 use sqlx::SqlitePool;
 use std::{collections::HashMap, path::PathBuf};

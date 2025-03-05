@@ -5,8 +5,8 @@ mod system;
 
 pub use error::Error;
 use figment::{
-    providers::{Format, Serialized, Toml},
     Figment,
+    providers::{Format, Serialized, Toml},
 };
 pub use model::Model;
 use serde::{Deserialize, Serialize};

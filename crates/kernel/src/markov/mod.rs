@@ -2,7 +2,7 @@ pub(crate) mod database;
 mod inner;
 mod markov_state;
 
-use crate::{exe::ExeForMarkov, extract_exe, Error};
+use crate::{Error, exe::ExeForMarkov, extract_exe};
 use inner::MarkovInner;
 pub use markov_state::MarkovState;
 use parking_lot::Mutex;
