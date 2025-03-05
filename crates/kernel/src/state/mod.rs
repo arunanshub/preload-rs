@@ -2,8 +2,8 @@ pub(crate) mod database;
 mod inner;
 
 use crate::{
-    database::{create_database_pool, DatabaseWriteExt},
-    Error, StateDatabaseReadExt, MIGRATOR,
+    Error, MIGRATOR, StateDatabaseReadExt,
+    database::{DatabaseWriteExt, create_database_pool},
 };
 use config::Config;
 use inner::StateInner;

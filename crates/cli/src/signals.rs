@@ -1,6 +1,6 @@
 use crate::error::Error;
 use flume::Sender;
-use tokio::signal::unix::{signal, SignalKind};
+use tokio::signal::unix::{SignalKind, signal};
 use tracing::debug;
 
 /// Indefinitely listens to signals and sends signal events to the provided channel.

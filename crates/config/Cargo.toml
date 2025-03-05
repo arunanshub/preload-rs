@@ -6,13 +6,13 @@ license.workspace = true
 
 [dependencies]
 figment = { version = "0.10.19", features = ["toml"] }
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { version = "1.0.218", features = ["derive"] }
 serde_with = "3.12.0"
 thiserror.workspace = true
-toml_edit = { version = "0.22.22", features = ["serde"] }
+toml_edit = { version = "0.22.24", features = ["serde"] }
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-tempfile = "3.15.0"
+tempfile = "3.17.1"

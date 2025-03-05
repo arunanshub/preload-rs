@@ -1,5 +1,5 @@
 use super::Map;
-use crate::{database::DatabaseWriteExt, Error};
+use crate::{Error, database::DatabaseWriteExt};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 
