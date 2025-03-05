@@ -38,9 +38,6 @@ jobs:
         with:
           components: clippy
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
-
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
 
@@ -83,9 +80,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
