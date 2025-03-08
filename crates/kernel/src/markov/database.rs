@@ -1,6 +1,5 @@
 use super::Markov;
 use crate::{Error, Exe, database::DatabaseWriteExt, extract_exe};
-use bincode::serialize;
 use sqlx::SqlitePool;
 use std::{collections::HashMap, path::PathBuf};
 
@@ -28,8 +27,8 @@ impl DatabaseWriteExt for Markov {
                 let path = extract_exe!(markov.exe_b).path.clone();
                 return Err(Error::ExeSeqNotAssigned(path));
             };
-            ttl = serialize(&markov.time_to_leave)?;
-            weight = serialize(&markov.weight)?;
+            ttl = bincode::encode_to_vec(&markov.time_to_leave, bincode::config::standard())?;
+            weight = bincode::encode_to_vec(&markov.weight, bincode::config::standard())?;
             time = markov.time as i64;
         }
 
@@ -116,8 +115,10 @@ impl MarkovDatabaseReadExt for Markov {
             let exe_b = exes
                 .get(&exe_b_path)
                 .ok_or_else(|| Error::ExeDoesNotExist(exe_b_path))?;
-            let time_to_leave: [f32; 4] = bincode::deserialize(&record.time_to_leave)?;
-            let weight: [[u32; 4]; 4] = bincode::deserialize(&record.weight)?;
+            let time_to_leave: [f32; 4] =
+                bincode::decode_from_slice(&record.time_to_leave, bincode::config::standard())?.0;
+            let weight: [[u32; 4]; 4] =
+                bincode::decode_from_slice(&record.weight, bincode::config::standard())?.0;
 
             let Some(markov) =
                 exe_a.build_markov_chain_with(exe_b, state_time, last_running_timestamp)?

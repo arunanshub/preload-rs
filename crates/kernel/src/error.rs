@@ -45,7 +45,11 @@ pub enum Error {
 
     /// Error occurred during performing a bincode serialization operation.
     #[error("Failed to serialize to bincode: {0}")]
-    BincodeSerializeFailed(#[from] bincode::Error),
+    BincodeSerializeFailed(#[from] bincode::error::EncodeError),
+
+    /// Error occurred during performing a bincode deserialization operation.
+    #[error("Failed to deserialize from bincode: {0}")]
+    BincodeDeserializeFailed(#[from] bincode::error::DecodeError),
 
     /// Error occurred during joining async tasks.
     #[error("Failed to join async tasks: {0}")]
