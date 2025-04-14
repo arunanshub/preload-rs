@@ -60,7 +60,7 @@ jobs:
           cargo llvm-cov --codecov --output-path coverage.cov nextest --all-features --workspace
 
       - name: Upload Coverage Report to Codecov
-        uses: codecov/codecov-action@v5.4.0
+        uses: codecov/codecov-action@v5.4.2
         with:
           files: coverage.cov
           token: ${{ secrets.CODECOV_TOKEN }}
