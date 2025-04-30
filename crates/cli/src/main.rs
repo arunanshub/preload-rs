@@ -4,11 +4,11 @@ use flume::bounded;
 use kernel::State;
 use preload_rs::{
     cli::Cli,
-    signals::{wait_for_signal, SignalEvent},
+    signals::{SignalEvent, wait_for_signal},
 };
 use tokio::time;
 use tracing::{debug, error, trace};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "jemalloc", feature = "mimalloc"))] {

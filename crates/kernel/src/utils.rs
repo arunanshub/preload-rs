@@ -1,10 +1,6 @@
 use crate::Error;
 use nix::fcntl::PosixFadviseAdvice;
-use std::{
-    fs::OpenOptions,
-    os::{fd::AsRawFd, unix::fs::OpenOptionsExt},
-    path::Path,
-};
+use std::{fs::OpenOptions, os::unix::fs::OpenOptionsExt, path::Path};
 
 /// Check if a file path is accepted based on the exeprefixes.
 ///
@@ -105,7 +101,7 @@ pub fn sanitize_file(path: &Path) -> Option<&Path> {
     // get rid of prelink and accept it
     let new_path = path.to_str().and_then(|x| x.split(".#prelink#.").next())?;
     // (non-prelinked) deleted files
-    if path.to_str().map_or(false, |s| s.contains("(deleted)")) {
+    if path.to_str().is_some_and(|s| s.contains("(deleted)")) {
         return None;
     }
     Some(Path::new(new_path))
@@ -129,7 +125,7 @@ pub fn sanitize_file(path: &Path) -> Option<&Path> {
 /// assert_eq!(kb(2049), 3);
 /// ```
 pub const fn kb(x: u64) -> u64 {
-    (x + 1023) / 1024
+    x.div_ceil(1024)
 }
 
 /// Read ahead a file at a given offset and length.
@@ -146,7 +142,7 @@ pub fn readahead(path: impl AsRef<Path>, offset: i64, length: i64) -> Result<(),
         .open(path)?;
 
     nix::fcntl::posix_fadvise(
-        file.as_raw_fd(),
+        file,
         offset,
         length,
         PosixFadviseAdvice::POSIX_FADV_WILLNEED,
@@ -158,7 +154,7 @@ pub fn readahead(path: impl AsRef<Path>, offset: i64, length: i64) -> Result<(),
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
-    use std::fs::{metadata, File};
+    use std::fs::{File, metadata};
     use std::io::Write;
     use std::path::PathBuf;
 

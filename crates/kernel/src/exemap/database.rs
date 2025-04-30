@@ -1,7 +1,7 @@
 #![allow(clippy::mutable_key_type)]
 
 use super::ExeMap;
-use crate::{database::DatabaseWriteExt, Error, Exe, Map};
+use crate::{Error, Exe, Map, database::DatabaseWriteExt};
 use sqlx::SqlitePool;
 use std::{
     collections::{HashMap, HashSet},

@@ -3,7 +3,7 @@
 pub(crate) mod database;
 mod inner;
 
-use crate::{extract_exe, Error, ExeMap, Markov};
+use crate::{Error, ExeMap, Markov, extract_exe};
 use inner::ExeInner;
 use parking_lot::Mutex;
 use std::{

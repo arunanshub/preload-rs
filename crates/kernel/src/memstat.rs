@@ -1,5 +1,5 @@
 use crate::Error;
-use procfs::{page_size, vmstat, Current, Meminfo};
+use procfs::{Current, Meminfo, page_size, vmstat};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MemStat {

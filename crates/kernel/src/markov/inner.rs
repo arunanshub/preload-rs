@@ -1,5 +1,5 @@
 use super::MarkovState;
-use crate::{exe::ExeForMarkov, extract_exe, Error};
+use crate::{Error, exe::ExeForMarkov, extract_exe};
 
 #[derive(Debug, Clone)]
 pub struct MarkovInner {
@@ -210,8 +210,8 @@ const fn get_markov_state(is_exe_a_running: bool, is_exe_b_running: bool) -> Mar
 mod macros {
     #[macro_export]
     macro_rules! extract_exe {
-        ($exe:expr) => {{
+        ($exe:expr) => {
             $exe.0.upgrade().ok_or(Error::ExeMarkovDeallocated)?.lock()
-        }};
+        };
     }
 }

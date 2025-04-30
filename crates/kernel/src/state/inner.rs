@@ -1,9 +1,9 @@
 use crate::{
-    utils::{accept_file, kb, readahead, sanitize_file},
     Error, Exe, ExeMap, Map, MemStat,
+    utils::{accept_file, kb, readahead, sanitize_file},
 };
 use config::{Config, Model, SortStrategy};
-use humansize::{format_size_i, DECIMAL};
+use humansize::{DECIMAL, format_size_i};
 use itertools::Itertools;
 use libc::pid_t;
 use procfs::process::MMapPath;
@@ -13,10 +13,10 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     mem,
     path::{Path, PathBuf},
-    sync::{atomic::AtomicU64, Arc},
+    sync::{Arc, atomic::AtomicU64},
 };
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
-use tracing::{debug, enabled, error, trace, warn, Level};
+use tracing::{Level, debug, enabled, error, trace, warn};
 
 #[derive(Debug, Default)]
 pub(crate) struct StateInner {
@@ -528,7 +528,7 @@ impl StateInner {
 
         // TODO: the actual sleep takes place outside the function by the
         // caller. This leads to some duplication.
-        self.time += (self.config.model.cycle.as_secs() + 1) / 2;
+        self.time += self.config.model.cycle.as_secs().div_ceil(2);
         Ok(())
     }
 }

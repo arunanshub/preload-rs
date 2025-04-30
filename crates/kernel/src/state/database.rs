@@ -2,15 +2,15 @@
 
 use super::inner::StateInner;
 use crate::{
-    database::DatabaseWriteExt,
-    exe::database::{read_bad_exes, write_bad_exe},
     Error, Exe, ExeDatabaseReadExt, ExeMap, ExeMapDatabaseReadExt, Map, MapDatabaseReadExt, Markov,
     MarkovDatabaseReadExt,
+    database::DatabaseWriteExt,
+    exe::database::{read_bad_exes, write_bad_exe},
 };
 use sqlx::SqlitePool;
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
     Arc,
+    atomic::{AtomicU64, Ordering},
 };
 use tracing::{debug, info, trace};
 
