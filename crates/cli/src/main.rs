@@ -10,17 +10,9 @@ use tokio::time;
 use tracing::{debug, error, trace};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-cfg_if::cfg_if! {
-    if #[cfg(all(feature = "jemalloc", feature = "mimalloc"))] {
-        compile_error!("Only one of the features `jemalloc` or `mimalloc` can be enabled at a time");
-    } else if #[cfg(feature = "jemalloc")] {
-        #[global_allocator]
-        static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
-    } else if #[cfg(feature = "mimalloc")] {
-        #[global_allocator]
-        static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
-    }
-}
+#[cfg(feature = "jemalloc")]
+#[global_allocator]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

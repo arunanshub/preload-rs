@@ -26,9 +26,6 @@ opt-level = 3
 [profile.test.package.rand_chacha]
 opt-level = 3
 
-[profile.test.package."*"]
-opt-level = 1
-
 [workspace.lints.clippy]
 print_stderr = "warn"
 print_stdout = "warn"
