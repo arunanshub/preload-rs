@@ -1,10 +1,6 @@
 use crate::Error;
 use nix::fcntl::PosixFadviseAdvice;
-use std::{
-    fs::OpenOptions,
-    os::{fd::AsRawFd, unix::fs::OpenOptionsExt},
-    path::Path,
-};
+use std::{fs::OpenOptions, os::unix::fs::OpenOptionsExt, path::Path};
 
 /// Check if a file path is accepted based on the exeprefixes.
 ///
@@ -146,7 +142,7 @@ pub fn readahead(path: impl AsRef<Path>, offset: i64, length: i64) -> Result<(),
         .open(path)?;
 
     nix::fcntl::posix_fadvise(
-        file.as_raw_fd(),
+        file,
         offset,
         length,
         PosixFadviseAdvice::POSIX_FADV_WILLNEED,
