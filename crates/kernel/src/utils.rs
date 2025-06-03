@@ -41,35 +41,24 @@ where
 {
     let path = path.as_ref();
 
-    // accept by default if no exeprefixes matched
-    let mut is_accepted = true;
-    // Consider this: exeprefix = ["!/my/file", "/my/file/child"] and path =
-    // "/my/file/child/foobar". If we were to return early, `path` will not be
-    // accepted because it matches the negative prefix. But it should actually
-    // be accepted because it matches the positive prefix. So, we need to check
-    // all prefixes before deciding whether to accept or reject.
+    let mut best: Option<(bool, usize)> = None;
+
     for exeprefix in exeprefixes {
         let exeprefix = exeprefix.as_ref();
-        // negative path prefix is present: if any match, reject
-        // eg: path_prefix = "/usr/bin" exeprefix = "!/usr/bin"
-        // reject "/usr/bin/abc" etc.
-        if let Some((_, path_prefix)) = exeprefix.split_once("!") {
-            let path_prefix = Path::new(path_prefix);
-            // if path is a child of path_prefix, reject
-            if path.starts_with(path_prefix) {
-                is_accepted = false;
-            }
-        // positive path prefix is present: if any match, accept
-        } else {
-            // eg: path_prefix = "/usr/bin" exeprefix = "/usr/bin"
-            // accept "/usr/bin/abc" etc.
-            if path.starts_with(exeprefix) {
-                is_accepted = true;
+        let (neg, prefix) = exeprefix
+            .strip_prefix('!')
+            .map(|p| (true, p))
+            .unwrap_or((false, exeprefix));
+        let prefix_path = Path::new(prefix);
+        if path.starts_with(prefix_path) {
+            let len = prefix.len();
+            if best.map(|(_, l)| l).unwrap_or(0) < len {
+                best = Some((!neg, len));
             }
         }
     }
 
-    is_accepted
+    best.map(|(accept, _)| accept).unwrap_or(true)
 }
 
 /// Sanitize a file path.
@@ -191,7 +180,7 @@ mod tests {
         exeprefixes.sort();
 
         assert!(accept_file("/usr/local/bin/accepted/file", exeprefixes));
-        // FIXME: assert!(!accept_file("/usr/local/bin/rejected/file", exeprefixes));
+        assert!(!accept_file("/usr/local/bin/rejected/file", exeprefixes));
         assert!(!accept_file("/usr/local/other", exeprefixes));
         assert!(accept_file("/usr/local/bin/other", exeprefixes));
     }
