@@ -61,7 +61,7 @@ pub struct System {
     pub mapprefix: Vec<PathBuf>,
 
     /// The syntax for this is exactly the same as for mapprefix. The only
-    /// difference is that this is used to accept or reject binary exectuable
+    /// difference is that this is used to accept or reject binary executable
     /// files instead of maps.
     pub exeprefix: Vec<String>,
 
