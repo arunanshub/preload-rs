@@ -48,17 +48,42 @@ impl MapInner {
         }
     }
 
-    /// For now the `use_inode` parameter does nothing.
-    pub fn set_block(&self) -> Result<(), Error> {
+    pub fn set_block(&self, use_inode: bool) -> Result<(), Error> {
+        use std::os::unix::io::AsRawFd;
+
         // in case we can get block, set 0 to not retry
         self.runtime.lock().block = Some(0);
-        let meta = self.path.metadata()?;
+
+        let file = std::fs::File::open(&self.path)?;
+        let meta = file.metadata()?;
 
         #[cfg(feature = "fiemap")]
         {
             // TODO: if (!use_inode) { ... }
         }
-        self.runtime.lock().block = Some(meta.st_ino());
+
+        let block = if use_inode {
+            meta.st_ino()
+        } else {
+            #[cfg(target_os = "linux")]
+            {
+                const FIBMAP: libc::c_ulong = 1;
+                let mut block = (self.offset / meta.st_blksize() as u64) as libc::c_long;
+                unsafe {
+                    if libc::ioctl(file.as_raw_fd(), FIBMAP, &mut block) < 0 {
+                        meta.st_ino()
+                    } else {
+                        block as u64
+                    }
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                meta.st_ino()
+            }
+        };
+
+        self.runtime.lock().block = Some(block);
         Ok(())
     }
 }

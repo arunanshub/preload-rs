@@ -65,8 +65,8 @@ impl Map {
         self.inner.runtime.lock().lnprob = lnprob;
     }
 
-    pub fn set_block(&self) -> Result<(), Error> {
-        self.inner.set_block()
+    pub fn set_block(&self, use_inode: bool) -> Result<(), Error> {
+        self.inner.set_block(use_inode)
     }
 }
 
