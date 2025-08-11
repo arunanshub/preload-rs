@@ -447,8 +447,7 @@ impl StateInner {
                                 None => Some(map),
                             })
                             .for_each(|map| {
-                                // TODO: strategy == Inode
-                                if let Err(err) = map.set_block() {
+                                if let Err(err) = map.set_block(sort_strategy == SortStrategy::Inode) {
                                     trace!(?err, "Failed to set block for map")
                                 }
                             });
@@ -459,18 +458,64 @@ impl StateInner {
             }
         }
 
-        let num_readahead = Arc::new(AtomicU64::new(0));
-        maps.par_iter()
-            .for_each_with(num_readahead.clone(), |counter, map| {
-                // TODO: if (path && offset <= files[i]->offset ...) {}
-                if let Err(error) = readahead(map.path(), map.offset() as i64, map.length() as i64)
-                {
-                    warn!(path=?map.path(), %error, "Failed to readahead");
-                } else {
-                    counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    trace!(?map, "Readahead done.");
+        // merge consecutive requests from the same file
+        let mut reqs: Vec<(PathBuf, u64, u64)> = Vec::new();
+        let mut cur_path: Option<&Path> = None;
+        let mut cur_off = 0u64;
+        let mut cur_len = 0u64;
+        for map in maps.iter() {
+            match cur_path {
+                Some(p) if p == map.path() && cur_off <= map.offset() && cur_off + cur_len >= map.offset() => {
+                    let end = map.offset() + map.length();
+                    let cur_end = cur_off + cur_len;
+                    if end > cur_end {
+                        cur_len = end - cur_off;
+                    }
                 }
+                Some(p) => {
+                    reqs.push((p.to_path_buf(), cur_off, cur_len));
+                    cur_path = Some(map.path());
+                    cur_off = map.offset();
+                    cur_len = map.length();
+                }
+                None => {
+                    cur_path = Some(map.path());
+                    cur_off = map.offset();
+                    cur_len = map.length();
+                }
+            }
+        }
+        if let Some(p) = cur_path {
+            reqs.push((p.to_path_buf(), cur_off, cur_len));
+        }
+
+        let num_readahead = Arc::new(AtomicU64::new(0));
+        let procs = self.config.system.processes as usize;
+        if procs == 0 || reqs.len() <= 1 {
+            for (path, offset, length) in &reqs {
+                if let Err(error) = readahead(path, *offset as i64, *length as i64) {
+                    warn!(path=?path, %error, "Failed to readahead");
+                } else {
+                    num_readahead.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    trace!(path=?path, offset, length, "Readahead done.");
+                }
+            }
+        } else {
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(procs)
+                .build()
+                .expect("thread pool");
+            pool.install(|| {
+                reqs.par_iter().for_each(|(path, offset, length)| {
+                    if let Err(error) = readahead(path, *offset as i64, *length as i64) {
+                        warn!(path=?path, %error, "Failed to readahead");
+                    } else {
+                        num_readahead.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        trace!(path=?path, offset, length, "Readahead done.");
+                    }
+                });
             });
+        }
         num_readahead.load(std::sync::atomic::Ordering::Relaxed)
     }
 
@@ -530,5 +575,31 @@ impl StateInner {
         // caller. This leads to some duplication.
         self.time += self.config.model.cycle.as_secs().div_ceil(2);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn merge_adjacent_readahead_requests() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("file");
+        std::fs::write(&file, vec![0u8; 8192]).unwrap();
+
+        let map1 = Map::new(&file, 0, 2048, 0);
+        let map2 = Map::new(&file, 1024, 1024, 0);
+        let map3 = Map::new(&file, 4096, 1024, 0);
+
+        let mut maps = vec![&map1, &map2, &map3];
+
+        let mut config = Config::new();
+        config.system.processes = 0;
+        config.system.sortstrategy = Some(SortStrategy::Path);
+
+        let state = StateInner::new(config);
+        let count = state.preload_readahead(&mut maps);
+        assert_eq!(count, 2);
     }
 }
