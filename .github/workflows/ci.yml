@@ -85,7 +85,7 @@ jobs:
         run: cargo build -p preload-rs --all-features --release
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: preload-nightly
           path: target/release/preload-rs
