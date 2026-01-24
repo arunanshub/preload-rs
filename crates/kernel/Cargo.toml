@@ -18,7 +18,7 @@ parking_lot = "0.12.3"
 procfs = "0.18.0"
 rayon = "1.10.0"
 sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio"] }
-sysinfo = "0.37.0"
+sysinfo = "0.38.0"
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
