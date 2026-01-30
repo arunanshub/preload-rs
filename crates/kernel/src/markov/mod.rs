@@ -67,7 +67,6 @@ impl Markov {
 mod tests {
     use super::Markov;
     use crate::{Error, Exe};
-    use core::panic;
     use proptest::prelude::*;
 
     #[test]
