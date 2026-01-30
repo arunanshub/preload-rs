@@ -10,7 +10,7 @@ license = "Apache-2.0"
 thiserror = "2.0.12"
 tracing = "0.1.41"
 proptest = "1.6.0"
-flume = "0.11.1"
+flume = "0.12.0"
 tokio = { version = "1.43.0", features = ["macros", "parking_lot", "rt-multi-thread", "signal"] }
 
 [profile.release]
