@@ -49,7 +49,7 @@ async fn sqlite_roundtrip_snapshot() {
         },
     };
 
-    let repo = SqliteRepository::new(db_path).unwrap();
+    let repo = SqliteRepository::new(db_path).await.unwrap();
     repo.save(&snapshot).await.unwrap();
     let loaded = repo.load().await.unwrap();
 

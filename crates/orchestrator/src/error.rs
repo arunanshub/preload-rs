@@ -13,8 +13,8 @@ pub enum Error {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("sqlite error: {0}")]
-    Sqlite(#[from] rusqlite::Error),
+    #[error("sqlx error: {0}")]
+    Sqlx(#[from] sqlx::Error),
 
     #[error("serialization error: {0}")]
     RkyvSerialize(String),
