@@ -3,12 +3,11 @@
 use crate::prefetch::{PrefetchPlan, PrefetchReport};
 use crate::stores::Stores;
 use async_trait::async_trait;
+use futures::stream::{self, StreamExt};
 use nix::fcntl::PosixFadviseAdvice;
 use std::fs::OpenOptions;
 use std::os::fd::AsRawFd;
 use std::os::unix::fs::OpenOptionsExt;
-use std::sync::Arc;
-use tokio::sync::Semaphore;
 use tracing::warn;
 
 #[async_trait]
@@ -57,44 +56,42 @@ impl PosixFadvisePrefetcher {
 impl Prefetcher for PosixFadvisePrefetcher {
     async fn execute(&self, plan: &PrefetchPlan, stores: &Stores) -> PrefetchReport {
         let mut report = PrefetchReport::default();
-        let semaphore = Arc::new(Semaphore::new(self.concurrency.max(1)));
-        let mut handles = Vec::new();
 
-        for map_id in &plan.maps {
-            let Some(map) = stores.maps.get(*map_id) else {
-                continue;
-            };
-            let permit = match semaphore.clone().acquire_owned().await {
-                Ok(permit) => permit,
+        let concurrency = self.concurrency.max(1);
+        let tasks: Vec<(crate::domain::MapKey, std::path::PathBuf, i64, i64)> = plan
+            .maps
+            .iter()
+            .filter_map(|map_id| {
+                let map = stores.maps.get(*map_id)?;
+                Some((
+                    map.key(),
+                    map.path.clone(),
+                    map.offset as i64,
+                    map.length as i64,
+                ))
+            })
+            .collect();
+
+        let mut stream = stream::iter(tasks).map(|(map_key, path, offset, length)| async move {
+            let join =
+                tokio::task::spawn_blocking(move || Self::readahead(&path, offset, length)).await;
+            match join {
+                Ok(result) => (map_key, result),
                 Err(err) => {
-                    warn!(%err, "prefetch semaphore closed");
-                    report.failures.push(map.key());
-                    continue;
+                    let err = std::io::Error::new(std::io::ErrorKind::Other, err);
+                    (map_key, Err(err))
                 }
-            };
-            let path = map.path.clone();
-            let offset = map.offset as i64;
-            let length = map.length as i64;
-            let map_key = map.key();
+            }
+        });
 
-            let handle = tokio::task::spawn_blocking(move || {
-                let _permit = permit;
-                (map_key, Self::readahead(&path, offset, length))
-            });
-            handles.push(handle);
-        }
-
-        for handle in handles {
-            match handle.await {
-                Ok((_map_key, Ok(()))) => {
-                    report.num_maps += 1;
-                }
-                Ok((map_key, Err(err))) => {
+        while let Some((map_key, result)) =
+            stream.by_ref().buffer_unordered(concurrency).next().await
+        {
+            match result {
+                Ok(()) => report.num_maps += 1,
+                Err(err) => {
                     warn!(?map_key, %err, "prefetch failed");
                     report.failures.push(map_key);
-                }
-                Err(err) => {
-                    warn!(%err, "prefetch task join failed");
                 }
             }
         }

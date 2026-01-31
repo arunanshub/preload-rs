@@ -11,6 +11,7 @@ tracing.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 async-trait.workspace = true
+futures.workspace = true
 slotmap.workspace = true
 procfs.workspace = true
 nix.workspace = true
