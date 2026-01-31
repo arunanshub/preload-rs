@@ -28,6 +28,13 @@ pub struct System {
     /// Max number of concurrent prefetch workers. None means auto (CPU cores).
     /// 0 disables prefetch entirely.
     pub prefetch_concurrency: Option<usize>,
+
+    /// How long to cache admission rejections.
+    #[serde_as(as = "serde_with::DurationSeconds")]
+    pub policy_cache_ttl: Duration,
+
+    /// Maximum number of cached admission rejections. 0 disables caching.
+    pub policy_cache_capacity: usize,
 }
 
 impl Default for System {
@@ -50,6 +57,8 @@ impl Default for System {
             ],
             sortstrategy: SortStrategy::Block,
             prefetch_concurrency: None,
+            policy_cache_ttl: Duration::from_secs(300),
+            policy_cache_capacity: 1024,
         }
     }
 }

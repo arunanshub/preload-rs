@@ -35,6 +35,10 @@ mapprefix = ["/usr/", "/lib/", "/var/cache/", "!/"]
 sortstrategy = "block"
 # Prefetch worker concurrency. Omit for auto (CPU cores). 0 disables prefetch.
 # prefetch_concurrency = 8
+# Cache admission rejections (TTL in seconds). 0 disables caching.
+policy_cache_ttl = 300
+# Max number of cached rejection entries. 0 disables caching.
+policy_cache_capacity = 1024
 
 [persistence]
 # Optional path to the state database.

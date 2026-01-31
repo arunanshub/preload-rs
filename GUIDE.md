@@ -97,6 +97,10 @@ Example: `memfree = 50` means the planner can use 50% of currently free memory.
 - `sortstrategy`: `none | path | block | inode`.
 - `prefetch_concurrency`: Number of parallel prefetch workers. Omit the field
   for auto (CPU cores). `0` disables prefetch entirely.
+- `policy_cache_ttl`: Cache admission rejections for this many seconds. `0`
+  disables caching.
+- `policy_cache_capacity`: Max number of cached rejection entries. `0` disables
+  caching.
 
 ### `[persistence]`
 

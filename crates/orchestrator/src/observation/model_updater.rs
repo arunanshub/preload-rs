@@ -87,13 +87,6 @@ impl ModelUpdater for DefaultModelUpdater {
         let mut active_exe_ids = HashSet::new();
 
         for (_, candidate) in candidates.into_iter() {
-            if !policy.allow_exe(&candidate.path) {
-                delta.rejected.push((
-                    ExeKey::new(candidate.path.clone()),
-                    super::RejectReason::ExePrefixDenied,
-                ));
-                continue;
-            }
             match policy.decide(&candidate) {
                 AdmissionDecision::Reject { reason } => {
                     delta

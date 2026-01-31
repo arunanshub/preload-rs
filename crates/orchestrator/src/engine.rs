@@ -276,6 +276,9 @@ impl PreloadEngine {
             model_time = self.stores.model_time,
             "state summary"
         );
+        if let Some(stats) = self.services.admission.stats() {
+            info!(?stats, "admission policy stats");
+        }
     }
 
     fn snapshot_from_stores(stores: &Stores) -> StoresSnapshot {

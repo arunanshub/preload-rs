@@ -12,9 +12,9 @@ pub mod stores;
 
 pub use engine::{ControlEvent, PreloadEngine, ReloadBundle, Services, TickReport};
 pub use observation::{
-    AdmissionDecision, AdmissionPolicy, CandidateExe, Completeness, DefaultAdmissionPolicy,
-    DefaultModelUpdater, ModelDelta, ModelUpdater, Observation, ObservationEvent, ProcfsScanner,
-    RejectReason, ScanWarning, Scanner,
+    AdmissionDecision, AdmissionPolicy, AdmissionPolicyStats, CandidateExe, Completeness,
+    DefaultAdmissionPolicy, DefaultModelUpdater, ModelDelta, ModelUpdater, Observation,
+    ObservationEvent, ProcfsScanner, RejectReason, ScanWarning, Scanner,
 };
 pub use persistence::{NoopRepository, SqliteRepository, StateRepository, StoresSnapshot};
 pub use prediction::{MarkovPredictor, Prediction, PredictionSummary, Predictor};

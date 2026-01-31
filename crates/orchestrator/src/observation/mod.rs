@@ -6,7 +6,8 @@ mod model_updater;
 mod procfs_scanner;
 
 pub use admission::{
-    AdmissionDecision, AdmissionPolicy, Completeness, DefaultAdmissionPolicy, RejectReason,
+    AdmissionDecision, AdmissionPolicy, AdmissionPolicyStats, Completeness, DefaultAdmissionPolicy,
+    RejectReason,
 };
 pub use event::{Observation, ObservationEvent, ScanWarning};
 pub use model_updater::{DefaultModelUpdater, ModelDelta, ModelUpdater};
