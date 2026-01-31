@@ -5,51 +5,49 @@
       "last_modified": "2026-01-01T13:17:10Z",
       "resolved": "github:NixOS/nixpkgs/76eec3925eb9bbe193934987d3285473dbcfad50?lastModified=1767273430"
     },
-    "lefthook@latest": {
-      "last_modified": "2026-01-23T17:20:52Z",
-      "resolved": "github:NixOS/nixpkgs/a1bab9e494f5f4939442a57a58d0449a109593fe#lefthook",
+    "lefthook@0.8.0": {
+      "last_modified": "2022-06-12T11:47:36Z",
+      "resolved": "github:NixOS/nixpkgs/72b1ec0a79b1fc50f6cc0694c2f0b1eb384a932e#lefthook",
       "source": "devbox-search",
-      "version": "2.0.15",
+      "version": "0.8.0",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/qrl1vnhss59hqwd8lkzrhvpxwjbjfgxh-lefthook-2.0.15",
+              "path": "/nix/store/hdycjzzqpfq3fa01fx4d7xhslbmrddrl-lefthook-0.8.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/qrl1vnhss59hqwd8lkzrhvpxwjbjfgxh-lefthook-2.0.15"
+          "store_path": "/nix/store/hdycjzzqpfq3fa01fx4d7xhslbmrddrl-lefthook-0.8.0"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/0k6yn1ycxmhmxrygh2h8l596jxr5q846-lefthook-2.0.15",
+              "path": "/nix/store/f3vy69kjry4qh5l28c0l374ydaafm5rj-lefthook-0.8.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/0k6yn1ycxmhmxrygh2h8l596jxr5q846-lefthook-2.0.15"
+          "store_path": "/nix/store/f3vy69kjry4qh5l28c0l374ydaafm5rj-lefthook-0.8.0"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/r4vkssvmbji6dhh2c2z363zahw8i6ks3-lefthook-2.0.15",
+              "path": "/nix/store/9fx1p0kzhz8ggy7ap636kajqsyd5cziy-lefthook-0.8.0",
               "default": true
             }
           ],
-          "store_path": "/nix/store/r4vkssvmbji6dhh2c2z363zahw8i6ks3-lefthook-2.0.15"
+          "store_path": "/nix/store/9fx1p0kzhz8ggy7ap636kajqsyd5cziy-lefthook-0.8.0"
         },
         "x86_64-linux": {
           "outputs": [
             {
-              "name": "out",
-              "path": "/nix/store/h2n7nl6hn9nnnihip29ginvni35f1s4r-lefthook-2.0.15",
+              "path": "/tmp/containerbase/cache/nix/store/i6ciqj3gsxsihhn02fnbnr7zw5grx4lw-lefthook-0.8.0",
               "default": true
             }
-          ],
-          "store_path": "/nix/store/h2n7nl6hn9nnnihip29ginvni35f1s4r-lefthook-2.0.15"
+          ]
         }
       }
     }
