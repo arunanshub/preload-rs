@@ -417,3 +417,188 @@ impl PreloadEngine {
         Ok(stores)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::{ExeKey, MapKey, MapSegment, MarkovState};
+    use crate::stores::EdgeKey;
+    use proptest::prelude::*;
+    use std::collections::{HashMap, HashSet};
+
+    #[derive(Debug, Clone, Copy, PartialEq)]
+    struct EdgeData {
+        time_to_leave: [f32; 4],
+        transition_prob: [[f32; 4]; 4],
+        both_running_time: u64,
+    }
+
+    proptest! {
+        #[test]
+        fn snapshot_roundtrip_preserves_keys(
+            exe_count in 0usize..8,
+            map_count in 0usize..8,
+            attachments in prop::collection::vec((0u8..16, 0u8..16), 0..30),
+            edges in prop::collection::vec(edge_strategy(), 0..20),
+            model_time in 0u64..1_000,
+        ) {
+            let mut stores = Stores {
+                model_time,
+                last_accounting_time: model_time,
+                ..Default::default()
+            };
+
+            let exe_ids: Vec<_> = (0..exe_count)
+                .map(|i| {
+                    let id = stores.ensure_exe(ExeKey::new(format!("/exe/{i}")));
+                    if let Some(exe) = stores.exes.get_mut(id) {
+                        exe.last_seen_time = Some(model_time);
+                        exe.total_running_time = (i as u64) * 10;
+                        exe.running = i % 2 == 0;
+                    }
+                    id
+                })
+                .collect();
+
+            let map_ids: Vec<_> = (0..map_count)
+                .map(|i| {
+                    stores.ensure_map(MapSegment::new(
+                        format!("/map/{i}"),
+                        (i as u64) * 4096,
+                        1024,
+                        model_time,
+                    ))
+                })
+                .collect();
+
+            if !exe_ids.is_empty() && !map_ids.is_empty() {
+                for (e, m) in attachments {
+                    let exe = exe_ids[e as usize % exe_ids.len()];
+                    let map = map_ids[m as usize % map_ids.len()];
+                    stores.attach_map(exe, map);
+                }
+            }
+
+            if exe_ids.len() >= 2 {
+                for (a_idx, b_idx, ttl, tp, both_time) in edges {
+                    let a = exe_ids[a_idx as usize % exe_ids.len()];
+                    let b = exe_ids[b_idx as usize % exe_ids.len()];
+                    if a == b {
+                        continue;
+                    }
+                    let state = MarkovState::Neither;
+                    stores.ensure_markov_edge(a, b, model_time, state);
+                    if let Some(edge) = stores.markov.get_mut(EdgeKey::new(a, b)) {
+                        edge.time_to_leave = ttl;
+                        edge.transition_prob = tp;
+                        edge.both_running_time = both_time;
+                    }
+                }
+            }
+
+            let snapshot = PreloadEngine::snapshot_from_stores(&stores);
+            let restored = PreloadEngine::stores_from_snapshot(snapshot.clone(), 1_000_000)
+                .expect("rehydrate failed");
+
+            let exe_set: HashSet<_> = snapshot
+                .state
+                .exes
+                .iter()
+                .map(|exe| exe.path.clone())
+                .collect();
+            let map_set: HashSet<_> = snapshot
+                .state
+                .maps
+                .iter()
+                .map(|map| MapKey::new(map.path.clone(), map.offset, map.length))
+                .collect();
+            let exe_map_set: HashSet<_> = snapshot
+                .state
+                .exe_maps
+                .iter()
+                .map(|record| (record.exe_path.clone(), record.map_key.clone()))
+                .collect();
+            let mut markov_map: HashMap<(std::path::PathBuf, std::path::PathBuf), EdgeData> =
+                HashMap::new();
+            for record in snapshot.state.markov_edges.iter() {
+                let key = (record.exe_a.clone(), record.exe_b.clone());
+                markov_map.insert(
+                    key,
+                    EdgeData {
+                        time_to_leave: record.time_to_leave,
+                        transition_prob: record.transition_prob,
+                        both_running_time: record.both_running_time,
+                    },
+                );
+            }
+
+            let restored_exes: HashSet<_> = restored
+                .exes
+                .iter()
+                .map(|(_, exe)| exe.key.path().clone())
+                .collect();
+            let restored_maps: HashSet<_> = restored
+                .maps
+                .iter()
+                .map(|(_, map)| map.key())
+                .collect();
+
+            prop_assert_eq!(restored_exes, exe_set);
+            prop_assert_eq!(restored_maps, map_set);
+
+            let restored_exe_maps: HashSet<_> = restored
+                .exes
+                .iter()
+                .flat_map(|(exe_id, exe)| {
+                    restored
+                        .exe_maps
+                        .maps_for_exe(exe_id)
+                        .filter_map(|map_id| restored.maps.get(map_id))
+                        .map(move |map| (exe.key.path().clone(), map.key()))
+                })
+                .collect();
+
+            prop_assert_eq!(restored_exe_maps, exe_map_set);
+
+            let restored_edges: HashMap<(std::path::PathBuf, std::path::PathBuf), EdgeData> =
+                restored
+                    .markov
+                    .iter()
+                    .filter_map(|(key, edge)| {
+                        let a = restored.exes.get(key.a())?.key.path().clone();
+                        let b = restored.exes.get(key.b())?.key.path().clone();
+                        Some((
+                            (a, b),
+                    EdgeData {
+                        time_to_leave: edge.time_to_leave,
+                        transition_prob: edge.transition_prob,
+                        both_running_time: edge.both_running_time,
+                    },
+                ))
+            })
+            .collect();
+
+            let original_keys: HashSet<_> = markov_map.keys().cloned().collect();
+            let restored_keys: HashSet<_> = restored_edges.keys().cloned().collect();
+            prop_assert_eq!(restored_keys, original_keys);
+
+            for (key, original) in markov_map {
+                if let Some(restored_record) = restored_edges.get(&key) {
+                    prop_assert_eq!(original.time_to_leave, restored_record.time_to_leave);
+                    prop_assert_eq!(original.transition_prob, restored_record.transition_prob);
+                    prop_assert_eq!(original.both_running_time, restored_record.both_running_time);
+                }
+            }
+        }
+    }
+
+    fn edge_strategy() -> impl Strategy<Value = (u8, u8, [f32; 4], [[f32; 4]; 4], u64)> {
+        (
+            0u8..16,
+            0u8..16,
+            prop::array::uniform4(0f32..100f32),
+            prop::array::uniform4(prop::array::uniform4(0f32..1f32)),
+            0u64..10_000,
+        )
+    }
+}

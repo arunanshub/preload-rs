@@ -38,7 +38,7 @@ impl MarkovPredictor {
             .map(|e| e.total_running_time)
             .unwrap_or(0);
 
-        if t == 0 || a_time == 0 || b_time == 0 || a_time == t || b_time == t {
+        if t == 0 || a_time == 0 || b_time == 0 || a_time >= t || b_time >= t {
             return 0.0;
         }
 
@@ -128,5 +128,104 @@ impl Predictor for MarkovPredictor {
         }
 
         prediction
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::{ExeKey, MapSegment, MarkovState};
+    use crate::stores::{EdgeKey, Stores};
+    use config::Config;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn predictor_scores_are_bounded(
+            exe_count in 0usize..8,
+            map_count in 0usize..8,
+            model_time in 0u64..1_000,
+            use_correlation in any::<bool>(),
+            edges in prop::collection::vec(edge_strategy(), 0..20),
+            attachments in prop::collection::vec((0u8..16, 0u8..16), 0..30),
+        ) {
+            let mut stores = Stores {
+                model_time,
+                ..Default::default()
+            };
+
+            let exe_ids: Vec<_> = (0..exe_count)
+                .map(|i| {
+                    let id = stores.ensure_exe(ExeKey::new(format!("/exe/{i}")));
+                    if let Some(exe) = stores.exes.get_mut(id) {
+                        exe.running = i % 2 == 0;
+                        exe.total_running_time = (i as u64) * 10;
+                        exe.last_seen_time = Some(model_time);
+                    }
+                    id
+                })
+                .collect();
+
+            let map_ids: Vec<_> = (0..map_count)
+                .map(|i| {
+                    stores.ensure_map(MapSegment::new(
+                        format!("/map/{i}"),
+                        (i as u64) * 4096,
+                        1024,
+                        model_time,
+                    ))
+                })
+                .collect();
+
+            if !exe_ids.is_empty() && !map_ids.is_empty() {
+                for (e, m) in attachments {
+                    let exe = exe_ids[e as usize % exe_ids.len()];
+                    let map = map_ids[m as usize % map_ids.len()];
+                    stores.attach_map(exe, map);
+                }
+            }
+
+            if exe_ids.len() >= 2 {
+                for (a_idx, b_idx, ttl, tp, both_time) in edges {
+                    let a = exe_ids[a_idx as usize % exe_ids.len()];
+                    let b = exe_ids[b_idx as usize % exe_ids.len()];
+                    if a == b {
+                        continue;
+                    }
+                    let state = MarkovState::Neither;
+                    stores.ensure_markov_edge(a, b, model_time, state);
+                    if let Some(edge) = stores.markov.get_mut(EdgeKey::new(a, b)) {
+                        edge.time_to_leave = ttl;
+                        edge.transition_prob = tp;
+                        edge.both_running_time = both_time;
+                    }
+                }
+            }
+
+            let mut config = Config::default();
+            config.model.use_correlation = use_correlation;
+            let predictor = MarkovPredictor::new(&config);
+            let prediction = predictor.predict(&stores);
+
+            for score in prediction.exe_scores.values() {
+                prop_assert!(!score.is_nan());
+                prop_assert!(*score >= 0.0 && *score <= 1.0);
+            }
+
+            for score in prediction.map_scores.values() {
+                prop_assert!(!score.is_nan());
+                prop_assert!(*score >= 0.0 && *score <= 1.0);
+            }
+        }
+    }
+
+    fn edge_strategy() -> impl Strategy<Value = (u8, u8, [f32; 4], [[f32; 4]; 4], u64)> {
+        (
+            0u8..16,
+            0u8..16,
+            prop::array::uniform4(0f32..100f32),
+            prop::array::uniform4(prop::array::uniform4(0f32..1f32)),
+            0u64..10_000,
+        )
     }
 }

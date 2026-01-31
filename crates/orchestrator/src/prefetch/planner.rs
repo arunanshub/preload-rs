@@ -222,3 +222,66 @@ fn sort_by_score_and_key<K: Ord>(items: &mut [SelectedWithKey<K>]) {
         }
     });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::MapSegment;
+    use crate::prediction::Prediction;
+    use crate::stores::Stores;
+    use config::{Config, MemoryPolicy, SortStrategy};
+    use proptest::prelude::*;
+    use std::collections::HashSet;
+
+    proptest! {
+        #[test]
+        fn planner_respects_budget_and_uniqueness(
+            maps in prop::collection::vec((1u64..8192, 0f32..1f32), 0..20),
+            memtotal in -100i32..100,
+            memfree in -100i32..100,
+            memcached in -100i32..100,
+            total in 0u64..1024,
+            free in 0u64..1024,
+            cached in 0u64..1024,
+        ) {
+            let mut config = Config::default();
+            config.model.memory = MemoryPolicy { memtotal, memfree, memcached };
+            config.system.sortstrategy = SortStrategy::None;
+
+            let planner = GreedyPrefetchPlanner::new(&config);
+            let mut stores = Stores::default();
+            let mut prediction = Prediction::default();
+
+            for (idx, (size, score)) in maps.iter().enumerate() {
+                let map_id = stores.ensure_map(MapSegment::new(
+                    format!("/map/{idx}"),
+                    0,
+                    *size,
+                    0,
+                ));
+                prediction.map_scores.insert(map_id, *score);
+            }
+
+            let mem = MemStat {
+                total,
+                free,
+                cached,
+                pagein: 0,
+                pageout: 0,
+            };
+
+            let plan = planner.plan(&prediction, &stores, &mem);
+            let budget_bytes = planner.available_kb(&mem) * 1024;
+
+            prop_assert!(plan.total_bytes <= budget_bytes);
+
+            let unique: HashSet<_> = plan.maps.iter().copied().collect();
+            prop_assert_eq!(unique.len(), plan.maps.len());
+
+            if budget_bytes == 0 {
+                prop_assert!(plan.maps.is_empty());
+                prop_assert_eq!(plan.total_bytes, 0);
+            }
+        }
+    }
+}

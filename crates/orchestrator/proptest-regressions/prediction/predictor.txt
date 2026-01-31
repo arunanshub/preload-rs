@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 609acadaf4db34d4da9cb1cd589f5d9cf9044cb00931a5ade11284220d5d3a89 # shrinks to exe_count = 3, map_count = 0, model_time = 1, use_correlation = true, edges = [(2, 10, [0.0, 0.0, 0.0, 0.0], [[0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0]], 0)], attachments = []

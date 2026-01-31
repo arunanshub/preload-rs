@@ -112,6 +112,7 @@ impl AdmissionPolicy for DefaultAdmissionPolicy {
 mod tests {
     use super::*;
     use crate::domain::MapSegment;
+    use proptest::prelude::*;
     use std::path::PathBuf;
 
     #[test]
@@ -137,5 +138,55 @@ mod tests {
                 reason: RejectReason::TooSmall
             }
         ));
+    }
+
+    proptest! {
+        #[test]
+        fn accept_path_matches_reference(
+            prefixes in prop::collection::vec(prefix_strategy(), 0..10),
+            path in path_strategy(),
+        ) {
+            let expected = reference_accept_path(&path, &prefixes);
+            let actual = DefaultAdmissionPolicy::accept_path(Path::new(&path), &prefixes);
+            prop_assert_eq!(actual, expected);
+        }
+    }
+
+    fn path_strategy() -> impl Strategy<Value = String> {
+        prop::collection::vec(segment_strategy(), 1..6)
+            .prop_map(|segments| format!("/{}", segments.join("/")))
+    }
+
+    fn prefix_strategy() -> impl Strategy<Value = String> {
+        (
+            any::<bool>(),
+            prop::collection::vec(segment_strategy(), 1..6),
+        )
+            .prop_map(|(negate, segments)| {
+                let prefix = format!("/{}", segments.join("/"));
+                if negate { format!("!{prefix}") } else { prefix }
+            })
+    }
+
+    fn segment_strategy() -> impl Strategy<Value = String> {
+        prop::collection::vec(97u8..=122, 1..8)
+            .prop_map(|bytes| bytes.into_iter().map(|b| b as char).collect())
+    }
+
+    fn reference_accept_path(path: &str, prefixes: &[String]) -> bool {
+        let mut best: Option<(bool, usize)> = None;
+        for prefix in prefixes {
+            let (neg, raw) = prefix
+                .strip_prefix('!')
+                .map(|p| (true, p))
+                .unwrap_or((false, prefix.as_str()));
+            if path.starts_with(raw) {
+                let len = raw.len();
+                if best.map(|(_, l)| l).unwrap_or(0) < len {
+                    best = Some((!neg, len));
+                }
+            }
+        }
+        best.map(|(accept, _)| accept).unwrap_or(true)
     }
 }

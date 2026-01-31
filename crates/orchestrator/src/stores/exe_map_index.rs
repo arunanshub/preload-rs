@@ -42,3 +42,63 @@ impl ExeMapIndex {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+    use slotmap::SlotMap;
+
+    proptest! {
+        #[test]
+        fn index_relationships_remain_consistent(
+            exe_count in 0usize..10,
+            map_count in 0usize..10,
+            attachments in prop::collection::vec((0u8..20, 0u8..20), 0..50),
+            removals in prop::collection::vec(0u8..20, 0..10),
+        ) {
+            let mut index = ExeMapIndex::default();
+            let mut exe_ids = SlotMap::<ExeId, ()>::with_key();
+            let mut map_ids = SlotMap::<MapId, ()>::with_key();
+
+            let exes: Vec<_> = (0..exe_count).map(|_| exe_ids.insert(())).collect();
+            let maps: Vec<_> = (0..map_count).map(|_| map_ids.insert(())).collect();
+
+            if !exes.is_empty() && !maps.is_empty() {
+                for (e, m) in attachments {
+                    let exe = exes[e as usize % exes.len()];
+                    let map = maps[m as usize % maps.len()];
+                    index.attach(exe, map);
+                }
+
+                for e in removals {
+                    let exe = exes[e as usize % exes.len()];
+                    index.remove_exe(exe);
+                }
+            }
+
+            for (exe, maps) in index.exe_to_maps.iter() {
+                for map in maps {
+                    let back = index
+                        .map_to_exes
+                        .get(map)
+                        .map(|set| set.contains(exe))
+                        .unwrap_or(false);
+                    prop_assert!(back);
+                }
+            }
+
+            for (map, exes) in index.map_to_exes.iter() {
+                prop_assert!(!exes.is_empty());
+                for exe in exes {
+                    let back = index
+                        .exe_to_maps
+                        .get(exe)
+                        .map(|set| set.contains(map))
+                        .unwrap_or(false);
+                    prop_assert!(back);
+                }
+            }
+        }
+    }
+}
