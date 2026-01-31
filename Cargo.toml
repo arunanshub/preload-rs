@@ -26,7 +26,7 @@ slotmap = "1.0.7"
 procfs = "0.16.0"
 nix = { version = "0.28.0", features = ["fs"] }
 sqlx = { version = "0.7.4", features = ["macros", "runtime-tokio", "sqlite"] }
-rkyv = { version = "0.7.44", features = ["validation"] }
+rkyv = { version = "0.8.0", features = ["validation"] }
 clap = { version = "4.5.27", features = ["derive"] }
 tempfile = "3.10.1"
 libc = "0.2.153"
