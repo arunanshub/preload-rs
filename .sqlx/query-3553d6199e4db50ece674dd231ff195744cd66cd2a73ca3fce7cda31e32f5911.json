@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO exe_maps (exe_path, map_path, map_offset, map_length, prob) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "3553d6199e4db50ece674dd231ff195744cd66cd2a73ca3fce7cda31e32f5911"
+}

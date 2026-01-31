@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS state (
 );
 
 CREATE TABLE IF NOT EXISTS exes (
-    path TEXT PRIMARY KEY,
+    path TEXT NOT NULL PRIMARY KEY,
     total_running_time INTEGER NOT NULL,
     last_seen_time INTEGER
 );

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO maps (path, offset, length, update_time) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "379e6aebaac4cd9167af2ee3fc073c1512565a1a5654c4e2f83088495cd28c16"
+}

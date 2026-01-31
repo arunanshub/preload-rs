@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM exe_maps",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "fee4ab65b5bd3b196841d1982a72eee2b897e847ee553ff558428ec4d66be138"
+}

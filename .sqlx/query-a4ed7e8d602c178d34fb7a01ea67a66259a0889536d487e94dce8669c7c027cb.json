@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT exe_path as \"exe_path!\", map_path as \"map_path!\", map_offset as \"map_offset!\", map_length as \"map_length!\", prob as \"prob!\" FROM exe_maps",
+  "describe": {
+    "columns": [
+      {
+        "name": "exe_path!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "map_path!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "map_offset!",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "map_length!",
+        "ordinal": 3,
+        "type_info": "Int64"
+      },
+      {
+        "name": "prob!",
+        "ordinal": 4,
+        "type_info": "Float"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a4ed7e8d602c178d34fb7a01ea67a66259a0889536d487e94dce8669c7c027cb"
+}

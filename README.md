@@ -18,16 +18,19 @@ probabilities are used to choose files to prefetch into the main memory. Special
 care is taken to not degrade system performance and only prefetch when enough
 resources are available.
 
-
 ## Design
 
 `preload-rs` has been divided into the following crates, with each crate serving a specific purpose. They are:
 
 - `cli`: Responsible for launching `preload-rs` process. It is a binary crate.
 - `config`: Manages configuration for `preload-rs`. It is a library.
-- `kernel`: Manages the core functionality of `preload-rs`. It is a library.
+- `orchestrator`: Manages core functionality and persistence. It is a library.
 
 All crates reside under `crates/` directory.
+
+## Configuration
+
+An example configuration is available at `docs/config.example.toml`.
 
 ## Guidelines
 

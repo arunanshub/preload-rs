@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO markovs (exe_a, exe_b, time_to_leave, transition_prob, both_running_time) VALUES (?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "e97b3218df92154bc053f2b49be9f7e3731fff74fa647b52b233f964728ab498"
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT path as \"path!\", offset as \"offset!\", length as \"length!\", update_time as \"update_time!\" FROM maps",
+  "describe": {
+    "columns": [
+      {
+        "name": "path!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "offset!",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "length!",
+        "ordinal": 2,
+        "type_info": "Int64"
+      },
+      {
+        "name": "update_time!",
+        "ordinal": 3,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "bc258032f2419e7b594df12fb107efa31dfccd69ccc173bc222e25fe80e9ff82"
+}

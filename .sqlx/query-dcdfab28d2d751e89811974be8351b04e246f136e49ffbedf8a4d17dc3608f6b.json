@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM exes",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "dcdfab28d2d751e89811974be8351b04e246f136e49ffbedf8a4d17dc3608f6b"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO exes (path, total_running_time, last_seen_time) VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "29075064af8a9503788714300059b6ac6521de80d1cafd750e4c6f237ed4add5"
+}

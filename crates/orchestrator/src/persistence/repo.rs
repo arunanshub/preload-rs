@@ -6,7 +6,6 @@ use crate::persistence::{
     StateSnapshot, StoresSnapshot,
 };
 use async_trait::async_trait;
-use sqlx::Row;
 use sqlx::SqlitePool;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use std::path::PathBuf;
@@ -83,13 +82,15 @@ impl SqliteRepository {
     async fn save_snapshot(&self, snapshot: &StoresSnapshot) -> Result<(), Error> {
         let mut tx = self.pool.begin().await?;
 
-        sqlx::query("DELETE FROM state").execute(&mut *tx).await?;
-        sqlx::query("DELETE FROM exes").execute(&mut *tx).await?;
-        sqlx::query("DELETE FROM maps").execute(&mut *tx).await?;
-        sqlx::query("DELETE FROM exe_maps")
+        sqlx::query!("DELETE FROM state").execute(&mut *tx).await?;
+        sqlx::query!("DELETE FROM exes").execute(&mut *tx).await?;
+        sqlx::query!("DELETE FROM maps").execute(&mut *tx).await?;
+        sqlx::query!("DELETE FROM exe_maps")
             .execute(&mut *tx)
             .await?;
-        sqlx::query("DELETE FROM markovs").execute(&mut *tx).await?;
+        sqlx::query!("DELETE FROM markovs")
+            .execute(&mut *tx)
+            .await?;
 
         let meta = &snapshot.meta;
         let created_at = meta
@@ -97,49 +98,67 @@ impl SqliteRepository {
             .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
             .map(|d| d.as_secs().to_string());
 
-        sqlx::query(
+        let app_version = meta.app_version.clone();
+        let schema_version = meta.schema_version as i64;
+        let model_time = snapshot.state.model_time as i64;
+        let last_accounting_time = snapshot.state.last_accounting_time as i64;
+        sqlx::query!(
             "INSERT INTO state (id, schema_version, app_version, created_at, model_time, last_accounting_time) \
              VALUES (1, ?, ?, ?, ?, ?)",
+            schema_version,
+            app_version,
+            created_at,
+            model_time,
+            last_accounting_time
         )
-        .bind(meta.schema_version as i64)
-        .bind(meta.app_version.as_deref())
-        .bind(created_at.as_deref())
-        .bind(snapshot.state.model_time as i64)
-        .bind(snapshot.state.last_accounting_time as i64)
         .execute(&mut *tx)
         .await?;
 
         for exe in &snapshot.state.exes {
-            sqlx::query(
+            let path = exe.path.to_string_lossy().to_string();
+            let total_running_time = exe.total_running_time as i64;
+            let last_seen_time = exe.last_seen_time.map(|v| v as i64);
+            sqlx::query!(
                 "INSERT INTO exes (path, total_running_time, last_seen_time) VALUES (?, ?, ?)",
+                path,
+                total_running_time,
+                last_seen_time
             )
-            .bind(exe.path.to_string_lossy().to_string())
-            .bind(exe.total_running_time as i64)
-            .bind(exe.last_seen_time.map(|v| v as i64))
             .execute(&mut *tx)
             .await?;
         }
 
         for map in &snapshot.state.maps {
-            sqlx::query("INSERT INTO maps (path, offset, length, update_time) VALUES (?, ?, ?, ?)")
-                .bind(map.path.to_string_lossy().to_string())
-                .bind(map.offset as i64)
-                .bind(map.length as i64)
-                .bind(map.update_time as i64)
-                .execute(&mut *tx)
-                .await?;
+            let path = map.path.to_string_lossy().to_string();
+            let offset = map.offset as i64;
+            let length = map.length as i64;
+            let update_time = map.update_time as i64;
+            sqlx::query!(
+                "INSERT INTO maps (path, offset, length, update_time) VALUES (?, ?, ?, ?)",
+                path,
+                offset,
+                length,
+                update_time
+            )
+            .execute(&mut *tx)
+            .await?;
         }
 
         for map in &snapshot.state.exe_maps {
-            sqlx::query(
+            let exe_path = map.exe_path.to_string_lossy().to_string();
+            let map_path = map.map_key.path.to_string_lossy().to_string();
+            let map_offset = map.map_key.offset as i64;
+            let map_length = map.map_key.length as i64;
+            let prob = map.prob as f64;
+            sqlx::query!(
                 "INSERT INTO exe_maps (exe_path, map_path, map_offset, map_length, prob) \
                  VALUES (?, ?, ?, ?, ?)",
+                exe_path,
+                map_path,
+                map_offset,
+                map_length,
+                prob
             )
-            .bind(map.exe_path.to_string_lossy().to_string())
-            .bind(map.map_key.path.to_string_lossy().to_string())
-            .bind(map.map_key.offset as i64)
-            .bind(map.map_key.length as i64)
-            .bind(map.prob as f64)
             .execute(&mut *tx)
             .await?;
         }
@@ -151,15 +170,18 @@ impl SqliteRepository {
             let tp: Vec<u8> = rkyv::to_bytes::<_, 2048>(&markov.transition_prob)
                 .map_err(|err| Error::RkyvSerialize(err.to_string()))?
                 .into();
-            sqlx::query(
+            let exe_a = markov.exe_a.to_string_lossy().to_string();
+            let exe_b = markov.exe_b.to_string_lossy().to_string();
+            let both_running_time = markov.both_running_time as i64;
+            sqlx::query!(
                 "INSERT INTO markovs (exe_a, exe_b, time_to_leave, transition_prob, both_running_time) \
                  VALUES (?, ?, ?, ?, ?)",
+                exe_a,
+                exe_b,
+                ttl,
+                tp,
+                both_running_time
             )
-            .bind(markov.exe_a.to_string_lossy().to_string())
-            .bind(markov.exe_b.to_string_lossy().to_string())
-            .bind(ttl)
-            .bind(tp)
-            .bind(markov.both_running_time as i64)
             .execute(&mut *tx)
             .await?;
         }
@@ -184,97 +206,92 @@ impl SqliteRepository {
             markov_edges: Vec::new(),
         };
 
-        let row = sqlx::query(
-            "SELECT schema_version, app_version, created_at, model_time, last_accounting_time \
-             FROM state WHERE id = 1",
+        let row = sqlx::query!(
+            "SELECT schema_version as \"schema_version!\", app_version, created_at, \
+             model_time as \"model_time!\", last_accounting_time as \"last_accounting_time!\" \
+             FROM state WHERE id = 1"
         )
         .fetch_optional(&self.pool)
         .await?;
 
         if let Some(row) = row {
-            let schema_version: i64 = row.try_get("schema_version")?;
-            let app_version: Option<String> = row.try_get("app_version")?;
-            let created_at: Option<String> = row.try_get("created_at")?;
-            let model_time: i64 = row.try_get("model_time")?;
-            let last_accounting_time: i64 = row.try_get("last_accounting_time")?;
-
-            meta.schema_version = schema_version as u32;
-            meta.app_version = app_version;
-            meta.created_at = created_at
+            meta.schema_version = row.schema_version as u32;
+            meta.app_version = row.app_version;
+            meta.created_at = row
+                .created_at
                 .and_then(|s| s.parse::<u64>().ok())
                 .map(|secs| SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(secs));
-            state.model_time = model_time as u64;
-            state.last_accounting_time = last_accounting_time as u64;
+            state.model_time = row.model_time as u64;
+            state.last_accounting_time = row.last_accounting_time as u64;
         }
 
-        let rows = sqlx::query("SELECT path, total_running_time, last_seen_time FROM exes")
+        let rows = sqlx::query!(
+            "SELECT path as \"path!\", total_running_time as \"total_running_time!\", last_seen_time \
+             FROM exes"
+        )
             .fetch_all(&self.pool)
             .await?;
         for row in rows {
-            let path: String = row.try_get("path")?;
-            let total_running_time: i64 = row.try_get("total_running_time")?;
-            let last_seen_time: Option<i64> = row.try_get("last_seen_time")?;
             state.exes.push(ExeRecord {
-                path: PathBuf::from(path),
-                total_running_time: total_running_time as u64,
-                last_seen_time: last_seen_time.map(|v| v as u64),
+                path: PathBuf::from(row.path),
+                total_running_time: row.total_running_time as u64,
+                last_seen_time: row.last_seen_time.map(|v| v as u64),
             });
         }
 
-        let rows = sqlx::query("SELECT path, offset, length, update_time FROM maps")
+        let rows = sqlx::query!(
+            "SELECT path as \"path!\", offset as \"offset!\", length as \"length!\", update_time as \"update_time!\" \
+             FROM maps"
+        )
             .fetch_all(&self.pool)
             .await?;
         for row in rows {
-            let path: String = row.try_get("path")?;
-            let offset: i64 = row.try_get("offset")?;
-            let length: i64 = row.try_get("length")?;
-            let update_time: i64 = row.try_get("update_time")?;
             state.maps.push(MapRecord {
-                path: PathBuf::from(path),
-                offset: offset as u64,
-                length: length as u64,
-                update_time: update_time as u64,
+                path: PathBuf::from(row.path),
+                offset: row.offset as u64,
+                length: row.length as u64,
+                update_time: row.update_time as u64,
             });
         }
 
-        let rows =
-            sqlx::query("SELECT exe_path, map_path, map_offset, map_length, prob FROM exe_maps")
-                .fetch_all(&self.pool)
-                .await?;
-        for row in rows {
-            let exe_path: String = row.try_get("exe_path")?;
-            let map_path: String = row.try_get("map_path")?;
-            let map_offset: i64 = row.try_get("map_offset")?;
-            let map_length: i64 = row.try_get("map_length")?;
-            let prob: f64 = row.try_get("prob")?;
-            state.exe_maps.push(ExeMapRecord {
-                exe_path: PathBuf::from(exe_path),
-                map_key: crate::domain::MapKey::new(map_path, map_offset as u64, map_length as u64),
-                prob: prob as f32,
-            });
-        }
-
-        let rows = sqlx::query(
-            "SELECT exe_a, exe_b, time_to_leave, transition_prob, both_running_time FROM markovs",
+        let rows = sqlx::query!(
+            "SELECT exe_path as \"exe_path!\", map_path as \"map_path!\", map_offset as \"map_offset!\", \
+             map_length as \"map_length!\", prob as \"prob!\" FROM exe_maps"
         )
         .fetch_all(&self.pool)
         .await?;
         for row in rows {
-            let exe_a: String = row.try_get("exe_a")?;
-            let exe_b: String = row.try_get("exe_b")?;
-            let ttl: Vec<u8> = row.try_get("time_to_leave")?;
-            let tp: Vec<u8> = row.try_get("transition_prob")?;
-            let both: i64 = row.try_get("both_running_time")?;
+            state.exe_maps.push(ExeMapRecord {
+                exe_path: PathBuf::from(row.exe_path),
+                map_key: crate::domain::MapKey::new(
+                    row.map_path,
+                    row.map_offset as u64,
+                    row.map_length as u64,
+                ),
+                prob: row.prob as f32,
+            });
+        }
+
+        let rows = sqlx::query!(
+            "SELECT exe_a as \"exe_a!\", exe_b as \"exe_b!\", time_to_leave as \"time_to_leave!\", \
+             transition_prob as \"transition_prob!\", both_running_time as \"both_running_time!\" \
+             FROM markovs"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        for row in rows {
+            let ttl = row.time_to_leave;
+            let tp = row.transition_prob;
             let time_to_leave: [f32; 4] =
                 rkyv::from_bytes(&ttl).map_err(|err| Error::RkyvDeserialize(err.to_string()))?;
             let transition_prob: [[f32; 4]; 4] =
                 rkyv::from_bytes(&tp).map_err(|err| Error::RkyvDeserialize(err.to_string()))?;
             state.markov_edges.push(MarkovRecord {
-                exe_a: PathBuf::from(exe_a),
-                exe_b: PathBuf::from(exe_b),
+                exe_a: PathBuf::from(row.exe_a),
+                exe_b: PathBuf::from(row.exe_b),
                 time_to_leave,
                 transition_prob,
-                both_running_time: both as u64,
+                both_running_time: row.both_running_time as u64,
             });
         }
 
