@@ -1,18 +1,15 @@
 [package]
 name = "config"
 version = "0.1.0"
-edition.workspace = true
+edition = "2024"
 license.workspace = true
 
 [dependencies]
-figment = { version = "0.10.19", features = ["toml"] }
-serde = { version = "1.0.218", features = ["derive"] }
-serde_with = "3.12.0"
 thiserror.workspace = true
-toml_edit = { version = "0.24.0", features = ["serde"] }
-
-[lints]
-workspace = true
+serde.workspace = true
+serde_with.workspace = true
+toml_edit.workspace = true
 
 [dev-dependencies]
-tempfile = "3.17.1"
+proptest.workspace = true
+tempfile.workspace = true

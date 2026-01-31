@@ -1,0 +1,24 @@
+[package]
+name = "orchestrator"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+config = { path = "../config" }
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+async-trait.workspace = true
+slotmap.workspace = true
+procfs.workspace = true
+nix.workspace = true
+rusqlite.workspace = true
+rkyv.workspace = true
+libc.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile.workspace = true
