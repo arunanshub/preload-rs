@@ -21,7 +21,7 @@ async-trait = "0.1.89"
 futures = "0.3.31"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_with = "3.16.1"
-toml_edit = { version = "0.22.27", features = ["serde"] }
+toml_edit = { version = "0.24.0", features = ["serde"] }
 slotmap = "1.1.1"
 procfs = "0.18.0"
 nix = { version = "0.31.1", features = ["fs"] }
