@@ -11,17 +11,17 @@
       {
         "name": "offset!",
         "ordinal": 1,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "length!",
         "ordinal": 2,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "update_time!",
         "ordinal": 3,
-        "type_info": "Int64"
+        "type_info": "Integer"
       }
     ],
     "parameters": {
