@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use nix::fcntl::PosixFadviseAdvice;
 use std::fs::OpenOptions;
-use std::os::fd::AsRawFd;
 use std::os::unix::fs::OpenOptionsExt;
 use tracing::warn;
 
@@ -42,7 +41,7 @@ impl PosixFadvisePrefetcher {
             .custom_flags(libc::O_NOCTTY | libc::O_NOATIME)
             .open(path)?;
         nix::fcntl::posix_fadvise(
-            file.as_raw_fd(),
+            &file,
             offset,
             length,
             PosixFadviseAdvice::POSIX_FADV_WILLNEED,

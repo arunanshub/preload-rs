@@ -164,10 +164,10 @@ impl SqliteRepository {
         }
 
         for markov in &snapshot.state.markov_edges {
-            let ttl: Vec<u8> = rkyv::to_bytes::<_, 256>(&markov.time_to_leave)
+            let ttl: Vec<u8> = rkyv::to_bytes::<rkyv::rancor::Error>(&markov.time_to_leave)
                 .map_err(|err| Error::RkyvSerialize(err.to_string()))?
                 .into();
-            let tp: Vec<u8> = rkyv::to_bytes::<_, 2048>(&markov.transition_prob)
+            let tp: Vec<u8> = rkyv::to_bytes::<rkyv::rancor::Error>(&markov.transition_prob)
                 .map_err(|err| Error::RkyvSerialize(err.to_string()))?
                 .into();
             let exe_a = markov.exe_a.to_string_lossy().to_string();
@@ -282,10 +282,11 @@ impl SqliteRepository {
         for row in rows {
             let ttl = row.time_to_leave;
             let tp = row.transition_prob;
-            let time_to_leave: [f32; 4] =
-                rkyv::from_bytes(&ttl).map_err(|err| Error::RkyvDeserialize(err.to_string()))?;
+            let time_to_leave: [f32; 4] = rkyv::from_bytes::<[f32; 4], rkyv::rancor::Error>(&ttl)
+                .map_err(|err| Error::RkyvDeserialize(err.to_string()))?;
             let transition_prob: [[f32; 4]; 4] =
-                rkyv::from_bytes(&tp).map_err(|err| Error::RkyvDeserialize(err.to_string()))?;
+                rkyv::from_bytes::<[[f32; 4]; 4], rkyv::rancor::Error>(&tp)
+                    .map_err(|err| Error::RkyvDeserialize(err.to_string()))?;
             state.markov_edges.push(MarkovRecord {
                 exe_a: PathBuf::from(row.exe_a),
                 exe_b: PathBuf::from(row.exe_b),
