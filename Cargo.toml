@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = [
+    "crates/cli",
+    "crates/config",
+    "crates/orchestrator",
+]
 
 [workspace.package]
 edition = "2024"
@@ -9,9 +13,23 @@ license = "Apache-2.0"
 [workspace.dependencies]
 thiserror = "2.0.12"
 tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 proptest = "1.6.0"
-flume = "0.11.1"
-tokio = { version = "1.43.0", features = ["macros", "parking_lot", "rt-multi-thread", "signal"] }
+tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-util = "0.7.13"
+async-trait = "0.1.85"
+futures = "0.3.31"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_with = "3.12.0"
+toml_edit = { version = "0.22.23", features = ["serde"] }
+slotmap = "1.0.7"
+procfs = "0.16.0"
+nix = { version = "0.28.0", features = ["fs"] }
+sqlx = { version = "0.7.4", features = ["macros", "runtime-tokio", "sqlite"] }
+rkyv = { version = "0.7.44", features = ["validation"] }
+clap = { version = "4.5.27", features = ["derive"] }
+tempfile = "3.10.1"
+libc = "0.2.153"
 
 [profile.release]
 lto = true
@@ -21,9 +39,6 @@ strip = true
 panic = "abort"
 
 [profile.test.package.proptest]
-opt-level = 3
-
-[profile.test.package.rand_chacha]
 opt-level = 3
 
 [workspace.lints.clippy]

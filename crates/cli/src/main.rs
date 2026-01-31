@@ -1,132 +1,192 @@
-use clap::Parser;
-use config::Config;
-use flume::bounded;
-use kernel::State;
-use preload_rs::{
-    cli::Cli,
-    signals::{SignalEvent, wait_for_signal},
-};
-use tokio::time;
-use tracing::{debug, error, trace};
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+#![forbid(unsafe_code)]
 
-#[cfg(feature = "jemalloc")]
-#[global_allocator]
-static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+mod cli;
+mod signals;
+
+use clap::Parser;
+use cli::Cli;
+use config::Config;
+use orchestrator::{
+    ControlEvent, PreloadEngine, ReloadBundle, Services,
+    clock::SystemClock,
+    observation::{DefaultAdmissionPolicy, DefaultModelUpdater, ProcfsScanner},
+    persistence::{NoopRepository, SqliteRepository},
+    prediction::MarkovPredictor,
+    prefetch::{GreedyPrefetchPlanner, NoopPrefetcher, PosixFadvisePrefetcher, Prefetcher},
+};
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
+use tracing::{info, warn};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+    init_tracing(cli.verbose);
+    let config = load_config_from_cli(&cli)?;
 
-    // NOTE: The verbosity flag takes precedence over the environment variable
-    // for log control. For example, `PRELOAD_LOG=warn preload-rs -vvv` will
-    // still log at the trace level. The environment variable (`PRELOAD_LOG`)
-    // can only set the log level per crate, not override the verbosity flag.
-    // Eg. `PRELOAD_LOG=kernel=warn preload-rs -vvv` will log at the trace level
-    // for all crates except `kernel` which will log at the warn level.
-    let env_filter = EnvFilter::builder()
-        .with_default_directive("sqlx=warn".parse()?)
-        .with_env_var("PRELOAD_LOG")
-        .from_env()?
-        .add_directive(cli.verbosity.log_level_filter().as_str().parse()?);
-
-    let layer = tracing_subscriber::fmt::layer()
-        .with_level(true)
-        .with_file(false)
-        .with_line_number(false);
-
-    tracing_subscriber::registry()
-        .with(layer)
-        .with(env_filter)
-        .init();
-
-    // load config
-    let config = match &cli.conffile {
-        Some(path) => Config::load(path)?,
-        _ => {
-            let mut candidates = glob::glob("/etc/preload-rs/config.d/*.toml")?
-                .filter_map(Result::ok)
-                .collect::<Vec<_>>();
-            candidates.insert(0, "/etc/preload-rs/config.toml".into());
-            trace!(?candidates, "config file candidates");
-            Config::load_multiple(candidates)?
-        }
+    let repo = if cli.no_persist {
+        Box::new(NoopRepository) as Box<dyn orchestrator::persistence::StateRepository>
+    } else if let Some(path) = &config.persistence.state_path {
+        let repo = SqliteRepository::new(path.clone()).await?;
+        Box::new(repo) as Box<dyn orchestrator::persistence::StateRepository>
+    } else {
+        warn!("no persistence path provided; using in-memory state only");
+        Box::new(NoopRepository) as Box<dyn orchestrator::persistence::StateRepository>
     };
-    debug!(?config, ?cli);
 
-    // install signal handlers
-    let (signals_tx, signals_rx) = bounded(8);
-    let mut signal_handle = tokio::spawn(async move { wait_for_signal(signals_tx).await });
+    let reload_bundle = build_reload_bundle(config.clone(), cli.no_prefetch);
 
-    let autosave = config.system.autosave;
+    let services = Services {
+        scanner: Box::new(ProcfsScanner),
+        admission: reload_bundle.admission,
+        updater: reload_bundle.updater,
+        predictor: reload_bundle.predictor,
+        planner: reload_bundle.planner,
+        prefetcher: reload_bundle.prefetcher,
+        repo,
+        clock: Box::new(SystemClock),
+    };
 
-    // initialize the state
-    let state = State::try_new(config, cli.statefile).await?;
-    let state_clone = state.clone();
-    let mut state_handle = tokio::spawn(async move { state_clone.start().await });
+    let mut engine = PreloadEngine::load(config, services).await?;
 
-    // start the saver in a different thread
-    let state_clone = state.clone();
-    let mut saver_handle = tokio::spawn(async move { saver(state_clone, autosave).await });
+    if cli.once {
+        let report = engine.tick().await?;
+        info!(?report, "tick completed");
+        return Ok(());
+    }
 
-    loop {
-        tokio::select! {
-            // bubble up any errors from the signal handlers and timers
-            res = &mut signal_handle => {
-                let res = res?;
-                if let Err(err) = &res {
-                    error!("error happened during handling signals: {}", err);
-                }
-                res?
-            }
+    let cancel = CancellationToken::new();
+    signals::install_ctrl_c(cancel.clone());
 
-            // bubble up any errors from the saver
-            res = &mut saver_handle => {
-                let res = res?;
-                if let Err(err) = &res {
-                    error!("error happened during saving state: {}", err);
-                }
-                res?
-            }
+    let (control_tx, control_rx) = mpsc::unbounded_channel();
+    install_signal_handlers(cli.clone(), control_tx);
 
-            // bubble up any errors from the state
-            res = &mut state_handle => {
-                let res = res?;
-                if let Err(err) = &res {
-                    error!("error happened in state: {}", err);
-                }
-                res?
-            }
+    engine.run_until(cancel, control_rx).await?;
+    Ok(())
+}
 
-            // handle the signal events
-            event_res = signals_rx.recv_async() => {
-                let event = event_res?;
-                debug!(?event, "Received signal event");
+fn init_tracing(verbosity: u8) {
+    let default_level = match verbosity {
+        0 => "info",
+        1 => "debug",
+        _ => "trace",
+    };
 
-                match event {
-                    SignalEvent::DumpStateInfo => {
-                        debug!("dumping state info");
-                        state.dump_info().await;
-                    }
-                    SignalEvent::ManualSaveState => {
-                        debug!("manual save state");
-                        if let Some(path) = &cli.conffile {
-                            state.reload_config(path).await?;
-                        }
-                        state.write().await?;
-                    }
-                }
-            }
-        }
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_level));
+
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
+}
+
+/// Load configuration files and apply CLI overrides.
+fn load_config_from_cli(cli: &Cli) -> anyhow::Result<Config> {
+    let config_paths = cli.resolve_config_paths()?;
+    let mut config = if config_paths.is_empty() {
+        warn!("no config files found; falling back to defaults");
+        Config::default()
+    } else {
+        Config::load_multiple(config_paths)?
+    };
+
+    if let Some(path) = cli.state.clone().or(config.persistence.state_path.clone()) {
+        config.persistence.state_path = Some(path);
+    }
+
+    Ok(config)
+}
+
+/// Construct runtime services for a new configuration snapshot.
+fn build_reload_bundle(config: Config, no_prefetch: bool) -> ReloadBundle {
+    ReloadBundle {
+        admission: Box::new(DefaultAdmissionPolicy::new(&config)),
+        updater: Box::new(DefaultModelUpdater::new(&config)),
+        predictor: Box::new(MarkovPredictor::new(&config)),
+        planner: Box::new(GreedyPrefetchPlanner::new(&config)),
+        prefetcher: build_prefetcher(&config, no_prefetch),
+        config,
     }
 }
 
-#[inline]
-async fn saver(state: State, period: std::time::Duration) -> anyhow::Result<()> {
-    debug!(?period, "autosave interval");
-    loop {
-        time::sleep(period).await;
-        debug!("autosaving state");
-        state.write().await?;
+/// Select the prefetcher implementation based on configuration and CLI flags.
+fn build_prefetcher(config: &Config, no_prefetch: bool) -> Box<dyn Prefetcher> {
+    if no_prefetch || config.system.prefetch_concurrency == 0 {
+        Box::new(NoopPrefetcher)
+    } else {
+        Box::new(PosixFadvisePrefetcher::new(
+            config.system.prefetch_concurrency,
+        ))
+    }
+}
+
+/// Install signal handlers for runtime control (reload, dump, save).
+fn install_signal_handlers(cli: Cli, control_tx: mpsc::UnboundedSender<ControlEvent>) {
+    #[cfg(unix)]
+    {
+        let reload_tx = control_tx.clone();
+        tokio::spawn(async move {
+            use tokio::signal::unix::{SignalKind, signal};
+            let mut hup = match signal(SignalKind::hangup()) {
+                Ok(stream) => stream,
+                Err(err) => {
+                    warn!(?err, "failed to install SIGHUP handler");
+                    return;
+                }
+            };
+            while hup.recv().await.is_some() {
+                match load_config_from_cli(&cli) {
+                    Ok(config) => {
+                        let bundle = build_reload_bundle(config, cli.no_prefetch);
+                        if reload_tx
+                            .send(ControlEvent::Reload(Box::new(bundle)))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        warn!(?err, "failed to reload config");
+                    }
+                }
+            }
+        });
+
+        let usr_tx = control_tx.clone();
+        tokio::spawn(async move {
+            use tokio::signal::unix::{SignalKind, signal};
+            let mut usr1 = match signal(SignalKind::user_defined1()) {
+                Ok(stream) => stream,
+                Err(err) => {
+                    warn!(?err, "failed to install SIGUSR1 handler");
+                    return;
+                }
+            };
+            while usr1.recv().await.is_some() {
+                if usr_tx.send(ControlEvent::DumpStatus).is_err() {
+                    break;
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            use tokio::signal::unix::{SignalKind, signal};
+            let mut usr2 = match signal(SignalKind::user_defined2()) {
+                Ok(stream) => stream,
+                Err(err) => {
+                    warn!(?err, "failed to install SIGUSR2 handler");
+                    return;
+                }
+            };
+            while usr2.recv().await.is_some() {
+                if control_tx.send(ControlEvent::SaveNow).is_err() {
+                    break;
+                }
+            }
+        });
+    }
+
+    #[cfg(not(unix))]
+    {
+        let _ = (cli, control_tx);
     }
 }

@@ -1,0 +1,44 @@
+# preload-rs example configuration
+# Time values are in seconds unless noted.
+
+[model]
+# Observation/prediction cycle length.
+cycle = 20
+# Whether to use correlation in prediction.
+use_correlation = true
+# Minimum total mapped bytes to track an executable.
+minsize = 2000000
+# Active-set window for lazy Markov edges.
+active_window = 21600
+# Optional half-life for exponential decay (seconds). Overrides decay when set.
+# half_life = 3600
+# Exponential decay factor.
+decay = 0.01
+
+[model.memory]
+# Memory budget policy (percentages, clamped to -100..=100).
+memtotal = -10
+memfree = 50
+memcached = 0
+
+[system]
+# Enable scanning and prediction.
+doscan = true
+dopredict = true
+# Autosave interval in seconds.
+autosave = 3600
+# Executable path prefixes to include/exclude. "!" means deny.
+exeprefix = ["!/usr/sbin/", "!/usr/local/sbin/", "/usr/", "!/"]
+# Mapped file prefixes to include/exclude. "!" means deny.
+mapprefix = ["/usr/", "/lib/", "/var/cache/", "!/"]
+# Prefetch sort strategy: none | path | block | inode.
+sortstrategy = "block"
+# Prefetch worker concurrency. 0 disables prefetch.
+prefetch_concurrency = 8
+
+[persistence]
+# Optional path to the state database.
+# state_path = "/var/lib/preload-rs/state.db"
+# Optional override for autosave interval (seconds).
+# autosave_interval = 120
+save_on_shutdown = true

@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT schema_version as \"schema_version!\", app_version, created_at, model_time as \"model_time!\", last_accounting_time as \"last_accounting_time!\" FROM state WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "schema_version!",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "app_version",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "model_time!",
+        "ordinal": 3,
+        "type_info": "Int64"
+      },
+      {
+        "name": "last_accounting_time!",
+        "ordinal": 4,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "dd39e3ac4c6238df0b34059ec61545d93da99c2e56839bafe02808137f2d7780"
+}

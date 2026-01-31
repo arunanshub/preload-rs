@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT exe_a as \"exe_a!\", exe_b as \"exe_b!\", time_to_leave as \"time_to_leave!\", transition_prob as \"transition_prob!\", both_running_time as \"both_running_time!\" FROM markovs",
+  "describe": {
+    "columns": [
+      {
+        "name": "exe_a!",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "exe_b!",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "time_to_leave!",
+        "ordinal": 2,
+        "type_info": "Blob"
+      },
+      {
+        "name": "transition_prob!",
+        "ordinal": 3,
+        "type_info": "Blob"
+      },
+      {
+        "name": "both_running_time!",
+        "ordinal": 4,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "497eec23eee4144a8d85a00d534603a030ff88e10b1847aff58898e9dcec2c6c"
+}

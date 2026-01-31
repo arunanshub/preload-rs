@@ -1,14 +1,21 @@
+#![forbid(unsafe_code)]
+
+use std::path::PathBuf;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Invalid sort strategy: {0}")]
-    InvalidSortStrategy(u8),
-
-    #[error("Failed to serialize TOML: {0}")]
-    SerializeTOML(#[from] toml_edit::ser::Error),
-
-    #[error("Failed to read configuration: {0}")]
-    Extract(#[from] figment::Error),
-
-    #[error("Failed to read file: {0}")]
+    #[error("failed to read config file: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("failed to parse TOML: {0}")]
+    TomlDe(#[from] toml_edit::de::Error),
+
+    #[error("failed to parse TOML document: {0}")]
+    TomlParse(#[from] toml_edit::TomlError),
+
+    #[error("failed to serialize TOML: {0}")]
+    TomlSer(#[from] toml_edit::ser::Error),
+
+    #[error("invalid path: {0}")]
+    InvalidPath(PathBuf),
 }

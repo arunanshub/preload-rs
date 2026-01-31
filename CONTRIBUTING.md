@@ -31,11 +31,11 @@ We use `sqlx` to communicate with the sqlite database. As a result, you must do 
 4. Apply the migrations to the dev database.
 
    ```shell
-   sqlx migrate run --source crates/kernel/migrations
+   sqlx migrate run --source crates/orchestrator/migrations
    ```
 
    All the migration scripts for the application are stored in
-   [crates/kernel/migrations](crates/kernel/migrations/).
+   [crates/orchestrator/migrations](crates/orchestrator/migrations/).
 
 For a more in-depth guide, please check [launchbadge/sqlx](https://github.com/launchbadge/sqlx).
 

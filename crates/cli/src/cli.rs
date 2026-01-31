@@ -1,98 +1,137 @@
 use clap::Parser;
-use clap_verbosity_flag::{Verbosity, WarnLevel};
 use std::path::{Path, PathBuf};
 
-/// preload-rs: The memory safe system optimizer
-///
-/// preload-rs is an adaptive readahead daemon that prefetches files mapped by
-/// applications from the disk to reduce application startup time.
+/// Command line interface for preload-rs.
 #[derive(Debug, Parser, Clone)]
 #[command(about, long_about, version)]
 pub struct Cli {
-    /// Path to configuration file.
-    ///
-    /// If not provided, the default locations are checked. They are
-    /// `/etc/preload-rs/config.toml` and `/etc/preload-rs/config.d/*.toml`,
-    /// where the latter being a glob pattern. If they don't exist, the default
-    /// configuration is used.
-    #[arg(short, long, value_parser = validate_file)]
-    pub conffile: Option<PathBuf>,
+    /// Path to a configuration file.
+    #[arg(short, long, value_name = "FILE")]
+    pub config: Option<PathBuf>,
 
-    /// File to load and save application state to.
-    ///
-    /// Empty string means state is stored in memory.
-    #[arg(short, long)]
-    pub statefile: Option<String>,
+    /// Path to a directory containing additional TOML config files.
+    #[arg(long, value_name = "DIR")]
+    pub config_dir: Option<PathBuf>,
 
-    /// Path to log file.
-    ///
-    /// Empty string means log to stderr.
-    #[arg(short, long)]
-    pub logfile: Option<PathBuf>,
+    /// Path to the state database.
+    #[arg(short, long, value_name = "FILE")]
+    pub state: Option<PathBuf>,
 
-    /// Run in foreground, do not daemonize.
-    #[arg(short, long)]
-    pub foreground: bool,
+    /// Run a single tick and exit.
+    #[arg(long)]
+    pub once: bool,
 
-    /// Nice level.
-    #[arg(short, long, default_value_t = 2)]
-    #[arg(value_parser = validate_nice)]
-    _nice: i8,
+    /// Disable persistence entirely.
+    #[arg(long)]
+    pub no_persist: bool,
 
-    #[command(flatten)]
-    pub verbosity: Verbosity<WarnLevel>,
+    /// Disable prefetch I/O (observe/predict only).
+    #[arg(long)]
+    pub no_prefetch: bool,
+
+    /// Increase verbosity (-v, -vv, -vvv).
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
 }
 
-/// Check if the file exists.
-#[inline(always)]
-fn validate_file(file: &str) -> Result<PathBuf, String> {
-    let path = Path::new(file);
-    if path.exists() {
-        Ok(path.to_owned())
-    } else {
-        Err(format!("File not found: {:?}", path))
-    }
-}
+impl Cli {
+    /// Resolve configuration paths in precedence order (earlier overridden by later).
+    pub fn resolve_config_paths(&self) -> Result<Vec<PathBuf>, std::io::Error> {
+        let mut paths = Vec::new();
 
-/// Validate niceness level
-#[inline(always)]
-fn validate_nice(nice: &str) -> Result<i8, String> {
-    let nice: i8 = nice
-        .parse()
-        .map_err(|_| format!("`{nice}` is not a valid nice number"))?;
-    if (-20..=19).contains(&nice) {
-        Ok(nice)
-    } else {
-        Err("Nice level must be between -20 and 19".to_string())
-    }
-}
+        if let Some(config) = &self.config {
+            ensure_file_exists(config)?;
+            paths.push(config.clone());
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    fn nice_candidates() -> impl Strategy<Value = String> {
-        prop_oneof![
-            2 => (-50..50).prop_map(|i| format!("{}", i)),
-            1 => (-1000..=1000).prop_map(|i| format!("{}", i)),
-            1 => ".*",
-        ]
-    }
-
-    proptest! {
-        #[test]
-        fn test_validate_nice(nice in nice_candidates()) {
-            let result = validate_nice(&nice);
-            match result {
-                Ok(n) => prop_assert!((-20..=19).contains(&n)),
-                Err(err) => {
-                    let error_msg = format!("`{}` is not a valid nice number", nice);
-                    prop_assert!(
-                        err == error_msg || err == "Nice level must be between -20 and 19"
-                    );
-                },
+            if let Some(dir) = &self.config_dir {
+                paths.extend(collect_toml(dir, true)?);
             }
+
+            return Ok(paths);
+        }
+
+        if let Some(path) = system_config_path()
+            && path.exists()
+        {
+            paths.push(path);
+        }
+
+        if let Some(dir) = system_config_dir()
+            && dir.is_dir()
+        {
+            paths.extend(collect_toml(&dir, false)?);
+        }
+
+        if let Some(path) = user_config_path()
+            && path.exists()
+        {
+            paths.push(path);
+        }
+
+        let local = PathBuf::from("config.toml");
+        if local.exists() {
+            paths.push(local);
+        }
+
+        if let Some(dir) = &self.config_dir {
+            paths.extend(collect_toml(dir, true)?);
+        }
+
+        Ok(paths)
+    }
+}
+
+fn ensure_file_exists(path: &Path) -> Result<(), std::io::Error> {
+    if path.exists() {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("config file not found: {}", path.display()),
+        ))
+    }
+}
+
+fn collect_toml(dir: &Path, strict: bool) -> Result<Vec<PathBuf>, std::io::Error> {
+    if !dir.exists() {
+        if strict {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("config directory not found: {}", dir.display()),
+            ));
+        }
+        return Ok(Vec::new());
+    }
+    if !dir.is_dir() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("config directory is not a directory: {}", dir.display()),
+        ));
+    }
+
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("toml") {
+            paths.push(path);
         }
     }
+    paths.sort();
+    Ok(paths)
+}
+
+fn system_config_path() -> Option<PathBuf> {
+    Some(PathBuf::from("/etc/preload-rs/config.toml"))
+}
+
+fn system_config_dir() -> Option<PathBuf> {
+    Some(PathBuf::from("/etc/preload-rs/config.d"))
+}
+
+fn user_config_path() -> Option<PathBuf> {
+    let xdg = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")));
+    xdg.map(|dir| dir.join("preload-rs").join("config.toml"))
 }

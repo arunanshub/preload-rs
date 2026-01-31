@@ -1,0 +1,136 @@
+#![forbid(unsafe_code)]
+
+use config::{Config, MemoryPolicy, SortStrategy};
+use orchestrator::domain::{MapSegment, MemStat};
+use orchestrator::prediction::Prediction;
+use orchestrator::prefetch::GreedyPrefetchPlanner;
+use orchestrator::prefetch::PrefetchPlanner;
+use orchestrator::stores::Stores;
+use std::os::linux::fs::MetadataExt;
+use tempfile::tempdir;
+
+#[test]
+fn planner_selects_maps_within_budget() {
+    let mut config = Config::default();
+    config.model.memory = MemoryPolicy {
+        memtotal: 0,
+        memfree: 100,
+        memcached: 0,
+    };
+    config.system.sortstrategy = SortStrategy::None;
+
+    let planner = GreedyPrefetchPlanner::new(&config);
+    let mut stores = Stores::default();
+
+    let map_a = stores.ensure_map(MapSegment::new("/a", 0, 2048, 0));
+    let map_b = stores.ensure_map(MapSegment::new("/b", 0, 2048, 0));
+    let map_c = stores.ensure_map(MapSegment::new("/c", 0, 1024, 0));
+
+    let mut prediction = Prediction::default();
+    prediction.map_scores.insert(map_a, 0.9);
+    prediction.map_scores.insert(map_b, 0.8);
+    prediction.map_scores.insert(map_c, 0.7);
+
+    let mem = MemStat {
+        total: 0,
+        free: 3,
+        cached: 0,
+        pagein: 0,
+        pageout: 0,
+    };
+
+    let plan = planner.plan(&prediction, &stores, &mem);
+
+    assert_eq!(plan.maps.len(), 2);
+    assert!(plan.maps.contains(&map_a));
+    assert!(plan.maps.contains(&map_c));
+    assert!(!plan.maps.contains(&map_b));
+    assert_eq!(plan.total_bytes, 2048 + 1024);
+    assert_eq!(plan.budget_bytes, 3 * 1024);
+}
+
+#[test]
+fn planner_sorts_by_block_with_score_tiebreak() {
+    let dir = tempdir().unwrap();
+    let path = dir.path().join("data.bin");
+    std::fs::write(&path, vec![0u8; 16 * 1024]).unwrap();
+
+    let mut config = Config::default();
+    config.model.memory = MemoryPolicy {
+        memtotal: 0,
+        memfree: 100,
+        memcached: 0,
+    };
+    config.system.sortstrategy = SortStrategy::Block;
+
+    let planner = GreedyPrefetchPlanner::new(&config);
+    let mut stores = Stores::default();
+
+    let map_a = stores.ensure_map(MapSegment::new(&path, 8192, 1024, 0));
+    let map_b = stores.ensure_map(MapSegment::new(&path, 0, 1024, 0));
+    let map_c = stores.ensure_map(MapSegment::new(&path, 4096, 1024, 0));
+
+    let mut prediction = Prediction::default();
+    prediction.map_scores.insert(map_a, 1.0);
+    prediction.map_scores.insert(map_b, 1.0);
+    prediction.map_scores.insert(map_c, 1.0);
+
+    let mem = MemStat {
+        total: 0,
+        free: 64,
+        cached: 0,
+        pagein: 0,
+        pageout: 0,
+    };
+
+    let plan = planner.plan(&prediction, &stores, &mem);
+
+    assert_eq!(plan.maps, vec![map_b, map_c, map_a]);
+}
+
+#[test]
+fn planner_sorts_by_inode_with_score_tiebreak() {
+    let dir = tempdir().unwrap();
+    let path_a = dir.path().join("a.bin");
+    let path_b = dir.path().join("b.bin");
+    std::fs::write(&path_a, vec![0u8; 4096]).unwrap();
+    std::fs::write(&path_b, vec![1u8; 4096]).unwrap();
+
+    let inode_a = std::fs::metadata(&path_a).unwrap().st_ino();
+    let inode_b = std::fs::metadata(&path_b).unwrap().st_ino();
+
+    let mut config = Config::default();
+    config.model.memory = MemoryPolicy {
+        memtotal: 0,
+        memfree: 100,
+        memcached: 0,
+    };
+    config.system.sortstrategy = SortStrategy::Inode;
+
+    let planner = GreedyPrefetchPlanner::new(&config);
+    let mut stores = Stores::default();
+
+    let map_a = stores.ensure_map(MapSegment::new(&path_a, 0, 1024, 0));
+    let map_b = stores.ensure_map(MapSegment::new(&path_b, 0, 1024, 0));
+
+    let mut prediction = Prediction::default();
+    prediction.map_scores.insert(map_a, 1.0);
+    prediction.map_scores.insert(map_b, 1.0);
+
+    let mem = MemStat {
+        total: 0,
+        free: 64,
+        cached: 0,
+        pagein: 0,
+        pageout: 0,
+    };
+
+    let plan = planner.plan(&prediction, &stores, &mem);
+
+    let expected = if inode_a <= inode_b {
+        vec![map_a, map_b]
+    } else {
+        vec![map_b, map_a]
+    };
+    assert_eq!(plan.maps, expected);
+}
