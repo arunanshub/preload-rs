@@ -16,3 +16,5 @@ anyhow = "1.0.100"
 
 [dev-dependencies]
 proptest.workspace = true
+nix.workspace = true
+tempfile.workspace = true

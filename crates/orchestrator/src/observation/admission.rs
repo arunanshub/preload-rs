@@ -151,7 +151,11 @@ impl AdmissionPolicy for DefaultAdmissionPolicy {
             return AdmissionDecision::Reject { reason };
         }
         if candidate.maps.is_empty() {
-            let reason = RejectReason::MissingMaps;
+            let reason = if candidate.rejected_maps.is_empty() {
+                RejectReason::MissingMaps
+            } else {
+                RejectReason::MapPrefixDenied
+            };
             self.cache_reject(&candidate.path, reason.clone());
             return AdmissionDecision::Reject { reason };
         }
@@ -249,6 +253,21 @@ mod tests {
             decision,
             AdmissionDecision::Reject {
                 reason: RejectReason::TooSmall
+            }
+        ));
+    }
+
+    #[test]
+    fn decision_rejects_map_prefix_when_all_maps_denied() {
+        let config = Config::default();
+        let policy = DefaultAdmissionPolicy::new(&config);
+        let mut exe = CandidateExe::new(PathBuf::from("/usr/bin/app"), 1);
+        exe.rejected_maps.push(PathBuf::from("/opt/secret.so"));
+        let decision = policy.decide(&exe);
+        assert!(matches!(
+            decision,
+            AdmissionDecision::Reject {
+                reason: RejectReason::MapPrefixDenied
             }
         ));
     }

@@ -24,7 +24,7 @@ serde_with = "3.16.1"
 toml_edit = { version = "0.24.0", features = ["serde"] }
 slotmap = "1.1.1"
 procfs = "0.18.0"
-nix = { version = "0.31.1", features = ["fs"] }
+nix = { version = "0.31.1", features = ["fs", "process", "signal"] }
 sqlx = { version = "0.8.6", features = ["macros", "runtime-tokio", "sqlite"] }
 rkyv = { version = "0.8.14", features = ["bytecheck"] }
 moka = { version = "0.12.8", features = ["sync"] }

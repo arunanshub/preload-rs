@@ -424,10 +424,121 @@ impl PreloadEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{ExeKey, MapKey, MapSegment, MarkovState};
+    use crate::domain::{ExeKey, MapKey, MapSegment, MarkovState, MemStat};
+    use crate::observation::{AdmissionDecision, AdmissionPolicy, CandidateExe, Completeness};
+    use crate::observation::{ModelUpdater, Observation, ObservationEvent, Scanner};
+    use crate::persistence::NoopRepository;
+    use crate::prediction::{Prediction, Predictor};
+    use crate::prefetch::{PrefetchPlan, PrefetchPlanner, PrefetchReport, Prefetcher};
     use crate::stores::EdgeKey;
+    use async_trait::async_trait;
     use proptest::prelude::*;
     use std::collections::{HashMap, HashSet};
+    use std::path::Path;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::time::Duration;
+
+    #[derive(Debug, Clone)]
+    struct Recording {
+        id: u32,
+        hits: Arc<AtomicU32>,
+    }
+
+    impl Recording {
+        fn record(&self) {
+            self.hits.store(self.id, Ordering::SeqCst);
+        }
+    }
+
+    #[derive(Debug, Default)]
+    struct StaticScanner;
+
+    impl Scanner for StaticScanner {
+        fn scan(&mut self, time: u64, scan_id: u64) -> Result<Observation, Error> {
+            Ok(vec![
+                ObservationEvent::ObsBegin { time, scan_id },
+                ObservationEvent::MemStat {
+                    mem: MemStat {
+                        total: 1,
+                        free: 1,
+                        cached: 1,
+                        pagein: 0,
+                        pageout: 0,
+                    },
+                },
+                ObservationEvent::ObsEnd {
+                    time,
+                    scan_id,
+                    warnings: Vec::new(),
+                },
+            ])
+        }
+    }
+
+    impl AdmissionPolicy for Recording {
+        fn allow_exe(&self, _path: &Path) -> bool {
+            self.record();
+            true
+        }
+
+        fn allow_map(&self, _path: &Path) -> bool {
+            self.record();
+            true
+        }
+
+        fn decide(&self, _candidate: &CandidateExe) -> AdmissionDecision {
+            self.record();
+            AdmissionDecision::Accept {
+                completeness: Completeness::Full,
+            }
+        }
+    }
+
+    impl ModelUpdater for Recording {
+        fn apply(
+            &mut self,
+            _stores: &mut Stores,
+            _observation: &Observation,
+            policy: &dyn AdmissionPolicy,
+        ) -> Result<ModelDelta, Error> {
+            self.record();
+            let candidate = CandidateExe::new(std::path::PathBuf::from("/bin/test"), 0);
+            let _ = policy.decide(&candidate);
+            Ok(ModelDelta::default())
+        }
+    }
+
+    impl Predictor for Recording {
+        fn predict(&self, _stores: &Stores) -> Prediction {
+            self.record();
+            Prediction::default()
+        }
+    }
+
+    impl PrefetchPlanner for Recording {
+        fn plan(
+            &self,
+            _prediction: &Prediction,
+            _stores: &Stores,
+            _memstat: &MemStat,
+        ) -> PrefetchPlan {
+            self.record();
+            PrefetchPlan {
+                maps: Vec::new(),
+                total_bytes: 0,
+                budget_bytes: 0,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl Prefetcher for Recording {
+        async fn execute(&self, _plan: &PrefetchPlan, _stores: &Stores) -> PrefetchReport {
+            self.record();
+            PrefetchReport::default()
+        }
+    }
 
     #[derive(Debug, Clone, Copy, PartialEq)]
     struct EdgeData {
@@ -593,6 +704,90 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[tokio::test]
+    async fn reload_swaps_runtime_services() {
+        let mut config = Config::default();
+        config.system.doscan = true;
+        config.system.dopredict = true;
+        config.model.cycle = Duration::from_secs(1);
+
+        let admission_hits = Arc::new(AtomicU32::new(0));
+        let updater_hits = Arc::new(AtomicU32::new(0));
+        let predictor_hits = Arc::new(AtomicU32::new(0));
+        let planner_hits = Arc::new(AtomicU32::new(0));
+        let prefetcher_hits = Arc::new(AtomicU32::new(0));
+
+        let services = Services {
+            scanner: Box::new(StaticScanner),
+            admission: Box::new(Recording {
+                id: 1,
+                hits: admission_hits.clone(),
+            }),
+            updater: Box::new(Recording {
+                id: 1,
+                hits: updater_hits.clone(),
+            }),
+            predictor: Box::new(Recording {
+                id: 1,
+                hits: predictor_hits.clone(),
+            }),
+            planner: Box::new(Recording {
+                id: 1,
+                hits: planner_hits.clone(),
+            }),
+            prefetcher: Box::new(Recording {
+                id: 1,
+                hits: prefetcher_hits.clone(),
+            }),
+            repo: Box::new(NoopRepository),
+            clock: Box::new(crate::clock::SystemClock),
+        };
+
+        let mut engine = PreloadEngine::new(config.clone(), services)
+            .await
+            .expect("engine");
+        engine.tick().await.expect("tick");
+
+        assert_eq!(admission_hits.load(Ordering::SeqCst), 1);
+        assert_eq!(updater_hits.load(Ordering::SeqCst), 1);
+        assert_eq!(predictor_hits.load(Ordering::SeqCst), 1);
+        assert_eq!(planner_hits.load(Ordering::SeqCst), 1);
+        assert_eq!(prefetcher_hits.load(Ordering::SeqCst), 1);
+
+        let bundle = ReloadBundle {
+            config: config.clone(),
+            admission: Box::new(Recording {
+                id: 2,
+                hits: admission_hits.clone(),
+            }),
+            updater: Box::new(Recording {
+                id: 2,
+                hits: updater_hits.clone(),
+            }),
+            predictor: Box::new(Recording {
+                id: 2,
+                hits: predictor_hits.clone(),
+            }),
+            planner: Box::new(Recording {
+                id: 2,
+                hits: planner_hits.clone(),
+            }),
+            prefetcher: Box::new(Recording {
+                id: 2,
+                hits: prefetcher_hits.clone(),
+            }),
+        };
+
+        engine.apply_reload(bundle);
+        engine.tick().await.expect("tick");
+
+        assert_eq!(admission_hits.load(Ordering::SeqCst), 2);
+        assert_eq!(updater_hits.load(Ordering::SeqCst), 2);
+        assert_eq!(predictor_hits.load(Ordering::SeqCst), 2);
+        assert_eq!(planner_hits.load(Ordering::SeqCst), 2);
+        assert_eq!(prefetcher_hits.load(Ordering::SeqCst), 2);
     }
 
     fn edge_strategy() -> impl Strategy<Value = (u8, u8, [f32; 4], [[f32; 4]; 4], u64)> {
