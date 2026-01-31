@@ -85,6 +85,8 @@ Markov edges are created eagerly for all exe pairs to match the thesis model.
 Predictor computes exe start probabilities from Markov edges and derives map
 scores from the exes that map them. PrefetchPlanner sorts maps by score and
 selects within a memory budget computed from MemStat and configuration.
+Sort strategies apply only as score tie-breakers, and missing metadata falls
+back to score-only ordering.
 
 ### Orchestrator
 
