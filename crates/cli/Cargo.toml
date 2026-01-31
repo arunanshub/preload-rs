@@ -12,6 +12,7 @@ tokio.workspace = true
 tokio-util.workspace = true
 config = { path = "../config" }
 orchestrator = { path = "../orchestrator" }
+anyhow = "1.0.100"
 
 [dev-dependencies]
 proptest.workspace = true

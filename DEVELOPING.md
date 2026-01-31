@@ -10,7 +10,6 @@ layout, runtime design, contracts, and how to work on the codebase.
 - `crates/orchestrator` — core engine, model, prediction, planning, and
   persistence.
 - `docs/` — ADRs, example config, and the original 2006 thesis PDF.
-- `preload-0.6.4/` — original C reference source (for feature parity checks).
 
 All crates are part of a Cargo workspace under `crates/`.
 
@@ -110,15 +109,20 @@ target platform.
 
 1. Install `sqlx-cli`.
 2. Add `.env` at repo root:
-   ```
+
+   ```bash
    DATABASE_URL="sqlite://./dev.db"
    ```
+
 3. Create and migrate the dev DB:
+
    ```bash
    sqlx database create
    sqlx migrate run --source crates/orchestrator/migrations
    ```
+
 4. When SQL changes, refresh offline data:
+
    ```bash
    cargo sqlx prepare --workspace
    ```
@@ -129,6 +133,7 @@ target platform.
 - **Logging:** use `tracing` macros (not `println!`).
 - **Error handling:** avoid `unwrap`, use `Result<T, E>`.
 - **Formatting/lints/tests:**
+
   ```bash
   cargo fmt --check --all
   cargo check --workspace --all-features

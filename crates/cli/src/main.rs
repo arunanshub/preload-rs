@@ -14,14 +14,13 @@ use orchestrator::{
     prediction::MarkovPredictor,
     prefetch::{GreedyPrefetchPlanner, NoopPrefetcher, PosixFadvisePrefetcher, Prefetcher},
 };
-use std::error::Error;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     init_tracing(cli.verbose);
     let config = load_config_from_cli(&cli)?;
@@ -81,7 +80,7 @@ fn init_tracing(verbosity: u8) {
 }
 
 /// Load configuration files and apply CLI overrides.
-fn load_config_from_cli(cli: &Cli) -> Result<Config, Box<dyn Error>> {
+fn load_config_from_cli(cli: &Cli) -> anyhow::Result<Config> {
     let config_paths = cli.resolve_config_paths()?;
     let mut config = if config_paths.is_empty() {
         warn!("no config files found; falling back to defaults");
