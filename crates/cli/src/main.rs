@@ -61,7 +61,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     signals::install_ctrl_c(cancel.clone());
 
     let (control_tx, control_rx) = mpsc::unbounded_channel();
-    install_reload_handler(cli.clone(), control_tx);
+    install_signal_handlers(cli.clone(), control_tx);
 
     engine.run_until(cancel, control_rx).await?;
     Ok(())
@@ -120,10 +120,11 @@ fn build_prefetcher(config: &Config, no_prefetch: bool) -> Box<dyn Prefetcher> {
     }
 }
 
-/// Install a SIGHUP handler to reload configuration at runtime.
-fn install_reload_handler(cli: Cli, control_tx: mpsc::UnboundedSender<ControlEvent>) {
+/// Install signal handlers for runtime control (reload, dump, save).
+fn install_signal_handlers(cli: Cli, control_tx: mpsc::UnboundedSender<ControlEvent>) {
     #[cfg(unix)]
     {
+        let reload_tx = control_tx.clone();
         tokio::spawn(async move {
             use tokio::signal::unix::{SignalKind, signal};
             let mut hup = match signal(SignalKind::hangup()) {
@@ -137,13 +138,49 @@ fn install_reload_handler(cli: Cli, control_tx: mpsc::UnboundedSender<ControlEve
                 match load_config_from_cli(&cli) {
                     Ok(config) => {
                         let bundle = build_reload_bundle(config, cli.no_prefetch);
-                        if control_tx.send(ControlEvent::Reload(bundle)).is_err() {
+                        if reload_tx
+                            .send(ControlEvent::Reload(Box::new(bundle)))
+                            .is_err()
+                        {
                             break;
                         }
                     }
                     Err(err) => {
                         warn!(?err, "failed to reload config");
                     }
+                }
+            }
+        });
+
+        let usr_tx = control_tx.clone();
+        tokio::spawn(async move {
+            use tokio::signal::unix::{SignalKind, signal};
+            let mut usr1 = match signal(SignalKind::user_defined1()) {
+                Ok(stream) => stream,
+                Err(err) => {
+                    warn!(?err, "failed to install SIGUSR1 handler");
+                    return;
+                }
+            };
+            while usr1.recv().await.is_some() {
+                if usr_tx.send(ControlEvent::DumpStatus).is_err() {
+                    break;
+                }
+            }
+        });
+
+        tokio::spawn(async move {
+            use tokio::signal::unix::{SignalKind, signal};
+            let mut usr2 = match signal(SignalKind::user_defined2()) {
+                Ok(stream) => stream,
+                Err(err) => {
+                    warn!(?err, "failed to install SIGUSR2 handler");
+                    return;
+                }
+            };
+            while usr2.recv().await.is_some() {
+                if control_tx.send(ControlEvent::SaveNow).is_err() {
+                    break;
                 }
             }
         });

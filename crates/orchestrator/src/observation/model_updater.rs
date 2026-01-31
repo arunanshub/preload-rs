@@ -40,7 +40,7 @@ impl DefaultModelUpdater {
     pub fn new(config: &Config) -> Self {
         Self {
             active_window: config.model.active_window.as_secs(),
-            decay: config.model.decay,
+            decay: config.model.decay_factor(),
         }
     }
 }

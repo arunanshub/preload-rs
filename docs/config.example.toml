@@ -10,6 +10,8 @@ use_correlation = true
 minsize = 2000000
 # Active-set window for lazy Markov edges.
 active_window = 21600
+# Optional half-life for exponential decay (seconds). Overrides decay when set.
+# half_life = 3600
 # Exponential decay factor.
 decay = 0.01
 

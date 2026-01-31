@@ -38,7 +38,9 @@ pub struct ReloadBundle {
 }
 
 pub enum ControlEvent {
-    Reload(ReloadBundle),
+    Reload(Box<ReloadBundle>),
+    DumpStatus,
+    SaveNow,
 }
 
 #[derive(Debug, Clone)]
@@ -226,8 +228,16 @@ impl PreloadEngine {
     async fn handle_control(&mut self, event: ControlEvent) -> Result<(), Error> {
         match event {
             ControlEvent::Reload(bundle) => {
-                self.apply_reload(bundle);
+                self.apply_reload(*bundle);
                 info!("config reloaded");
+            }
+            ControlEvent::DumpStatus => {
+                self.dump_status();
+            }
+            ControlEvent::SaveNow => {
+                self.save().await?;
+                self.last_save = Instant::now();
+                info!("state saved");
             }
         }
         Ok(())
@@ -249,6 +259,23 @@ impl PreloadEngine {
         self.services.predictor = bundle.predictor;
         self.services.planner = bundle.planner;
         self.services.prefetcher = bundle.prefetcher;
+    }
+
+    fn dump_status(&self) {
+        let exe_count = self.stores.exes.iter().count();
+        let map_count = self.stores.maps.iter().count();
+        let edge_count = self.stores.markov.iter().count();
+        let active_count = self.stores.active.exes().len();
+
+        info!(?self.config, "current config");
+        info!(
+            exe_count,
+            map_count,
+            edge_count,
+            active_count,
+            model_time = self.stores.model_time,
+            "state summary"
+        );
     }
 
     fn snapshot_from_stores(stores: &Stores) -> StoresSnapshot {

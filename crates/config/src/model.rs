@@ -23,7 +23,11 @@ pub struct Model {
     #[serde_as(as = "serde_with::DurationSeconds")]
     pub active_window: Duration,
 
-    /// Decay factor for exponentially-fading means.
+    /// Half-life for exponentially-fading means.
+    #[serde_as(as = "Option<serde_with::DurationSeconds>")]
+    pub half_life: Option<Duration>,
+
+    /// Decay factor (1/sec) for exponentially-fading means. Ignored if half_life is set.
     pub decay: f32,
 
     pub memory: MemoryPolicy,
@@ -36,10 +40,22 @@ impl Default for Model {
             use_correlation: true,
             minsize: 2_000_000,
             active_window: Duration::from_secs(6 * 60 * 60),
+            half_life: None,
             decay: 0.01,
             memory: MemoryPolicy::default(),
         }
     }
 }
 
-impl Model {}
+impl Model {
+    pub fn decay_factor(&self) -> f32 {
+        if let Some(half_life) = self.half_life {
+            let secs = half_life.as_secs_f32();
+            if secs > 0.0 {
+                return (2.0_f32.ln()) / secs;
+            }
+            return 0.0;
+        }
+        self.decay.max(0.0)
+    }
+}
