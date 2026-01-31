@@ -95,8 +95,8 @@ Example: `memfree = 50` means the planner can use 50% of currently free memory.
   longest matching prefix wins.
 - `mapprefix`: Allowed/denied map prefixes (same matching rules as `exeprefix`).
 - `sortstrategy`: `none | path | block | inode`.
-- `prefetch_concurrency`: Number of parallel prefetch workers. `0` disables
-  prefetch entirely.
+- `prefetch_concurrency`: Number of parallel prefetch workers. Omit the field
+  for auto (CPU cores). `0` disables prefetch entirely.
 
 ### `[persistence]`
 

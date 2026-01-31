@@ -18,6 +18,11 @@ probabilities are used to choose files to prefetch into the main memory. Special
 care is taken to not degrade system performance and only prefetch when enough
 resources are available.
 
+> [!NOTE]
+> Preload-rs is not a "rewrite" of the original preload anymore. While it
+> follows the logic as mentioned in preload's thesis, preload-rs is a
+> reimplementation rather than a rewrite.
+
 ## Design
 
 `preload-rs` has been divided into the following crates, with each crate serving a specific purpose. They are:
@@ -35,3 +40,11 @@ An example configuration is available at `docs/config.example.toml`.
 ## Guidelines
 
 Please see [CONTRIBUTING](./CONTRIBUTING.md).
+
+## How to use
+
+Please see [GUIDE](./GUIDE.md)
+
+## How to develop/extend
+
+Please see [DEVELOPING](./DEVELOPING.md)

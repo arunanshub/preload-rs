@@ -110,12 +110,18 @@ fn build_reload_bundle(config: Config, no_prefetch: bool) -> ReloadBundle {
 
 /// Select the prefetcher implementation based on configuration and CLI flags.
 fn build_prefetcher(config: &Config, no_prefetch: bool) -> Box<dyn Prefetcher> {
-    if no_prefetch || config.system.prefetch_concurrency == 0 {
+    if no_prefetch {
         Box::new(NoopPrefetcher)
     } else {
-        Box::new(PosixFadvisePrefetcher::new(
-            config.system.prefetch_concurrency,
-        ))
+        let concurrency = match config.system.prefetch_concurrency {
+            Some(0) => return Box::new(NoopPrefetcher),
+            Some(value) => value,
+            None => std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
+        };
+
+        Box::new(PosixFadvisePrefetcher::new(concurrency))
     }
 }
 

@@ -25,8 +25,9 @@ pub struct System {
     /// Prefetch sort strategy.
     pub sortstrategy: SortStrategy,
 
-    /// Max number of concurrent prefetch workers. 0 means single-threaded.
-    pub prefetch_concurrency: usize,
+    /// Max number of concurrent prefetch workers. None means auto (CPU cores).
+    /// 0 disables prefetch entirely.
+    pub prefetch_concurrency: Option<usize>,
 }
 
 impl Default for System {
@@ -48,7 +49,7 @@ impl Default for System {
                 "!/".into(),
             ],
             sortstrategy: SortStrategy::Block,
-            prefetch_concurrency: 8,
+            prefetch_concurrency: None,
         }
     }
 }

@@ -33,8 +33,8 @@ exeprefix = ["!/usr/sbin/", "!/usr/local/sbin/", "/usr/", "!/"]
 mapprefix = ["/usr/", "/lib/", "/var/cache/", "!/"]
 # Prefetch sort strategy: none | path | block | inode.
 sortstrategy = "block"
-# Prefetch worker concurrency. 0 disables prefetch.
-prefetch_concurrency = 8
+# Prefetch worker concurrency. Omit for auto (CPU cores). 0 disables prefetch.
+# prefetch_concurrency = 8
 
 [persistence]
 # Optional path to the state database.
