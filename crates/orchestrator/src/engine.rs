@@ -3,7 +3,7 @@
 use crate::clock::Clock;
 use crate::domain::{ExeKey, MapSegment, MarkovState, MemStat};
 use crate::error::Error;
-use crate::observation::{ModelDelta, ModelUpdater, ObservationEvent, Scanner};
+use crate::observation::{AdmissionPolicy, ModelDelta, ModelUpdater, ObservationEvent, Scanner};
 use crate::persistence::{
     ExeMapRecord, ExeRecord, MapRecord, MarkovRecord, SNAPSHOT_SCHEMA_VERSION, SnapshotMeta,
     StateRepository, StateSnapshot, StoresSnapshot,
@@ -13,18 +13,32 @@ use crate::prefetch::{PrefetchPlanner, PrefetchReport, Prefetcher};
 use crate::stores::Stores;
 use config::Config;
 use std::time::{Instant, SystemTime};
+use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{info, warn};
 
 pub struct Services {
     pub scanner: Box<dyn Scanner + Send + Sync>,
-    pub admission: Box<dyn crate::observation::AdmissionPolicy + Send + Sync>,
+    pub admission: Box<dyn AdmissionPolicy + Send + Sync>,
     pub updater: Box<dyn ModelUpdater + Send + Sync>,
     pub predictor: Box<dyn Predictor + Send + Sync>,
     pub planner: Box<dyn PrefetchPlanner + Send + Sync>,
     pub prefetcher: Box<dyn Prefetcher + Send + Sync>,
     pub repo: Box<dyn StateRepository + Send + Sync>,
     pub clock: Box<dyn Clock + Send + Sync>,
+}
+
+pub struct ReloadBundle {
+    pub config: Config,
+    pub admission: Box<dyn AdmissionPolicy + Send + Sync>,
+    pub updater: Box<dyn ModelUpdater + Send + Sync>,
+    pub predictor: Box<dyn Predictor + Send + Sync>,
+    pub planner: Box<dyn PrefetchPlanner + Send + Sync>,
+    pub prefetcher: Box<dyn Prefetcher + Send + Sync>,
+}
+
+pub enum ControlEvent {
+    Reload(ReloadBundle),
 }
 
 #[derive(Debug, Clone)]
@@ -147,15 +161,14 @@ impl PreloadEngine {
     }
 
     /// Run ticks until the cancellation token is triggered. Handles autosave.
-    pub async fn run_until(&mut self, cancel: CancellationToken) -> Result<(), Error> {
-        let autosave = self
-            .config
-            .persistence
-            .autosave_interval
-            .unwrap_or(self.config.system.autosave);
-
+    pub async fn run_until(
+        &mut self,
+        cancel: CancellationToken,
+        mut control_rx: mpsc::UnboundedReceiver<ControlEvent>,
+    ) -> Result<(), Error> {
         loop {
             let tick_start = self.services.clock.now();
+            let mut did_tick = false;
             tokio::select! {
                 _ = cancel.cancelled() => {
                     if self.config.persistence.save_on_shutdown {
@@ -164,10 +177,20 @@ impl PreloadEngine {
                     info!("shutdown requested");
                     break;
                 }
+                Some(event) = control_rx.recv() => {
+                    self.handle_control(event).await?;
+                }
                 result = self.tick() => {
                     result?;
+                    did_tick = true;
                 }
             }
+
+            let autosave = self
+                .config
+                .persistence
+                .autosave_interval
+                .unwrap_or(self.config.system.autosave);
 
             if autosave.as_secs() > 0 {
                 let elapsed = self.last_save.elapsed();
@@ -177,10 +200,12 @@ impl PreloadEngine {
                 }
             }
 
-            let elapsed = tick_start.elapsed();
-            if elapsed < self.config.model.cycle {
-                let sleep_for = self.config.model.cycle - elapsed;
-                self.services.clock.sleep(sleep_for).await;
+            if did_tick {
+                let elapsed = tick_start.elapsed();
+                if elapsed < self.config.model.cycle {
+                    let sleep_for = self.config.model.cycle - elapsed;
+                    self.services.clock.sleep(sleep_for).await;
+                }
             }
         }
 
@@ -196,6 +221,34 @@ impl PreloadEngine {
     /// Read-only access to in-memory stores (useful for tests).
     pub fn stores(&self) -> &Stores {
         &self.stores
+    }
+
+    async fn handle_control(&mut self, event: ControlEvent) -> Result<(), Error> {
+        match event {
+            ControlEvent::Reload(bundle) => {
+                self.apply_reload(bundle);
+                info!("config reloaded");
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_reload(&mut self, mut bundle: ReloadBundle) {
+        if bundle.config.persistence.state_path != self.config.persistence.state_path {
+            warn!(
+                current = ?self.config.persistence.state_path,
+                requested = ?bundle.config.persistence.state_path,
+                "ignoring state_path change during reload"
+            );
+            bundle.config.persistence.state_path = self.config.persistence.state_path.clone();
+        }
+
+        self.config = bundle.config;
+        self.services.admission = bundle.admission;
+        self.services.updater = bundle.updater;
+        self.services.predictor = bundle.predictor;
+        self.services.planner = bundle.planner;
+        self.services.prefetcher = bundle.prefetcher;
     }
 
     fn snapshot_from_stores(stores: &Stores) -> StoresSnapshot {

@@ -10,7 +10,7 @@ pub mod prediction;
 pub mod prefetch;
 pub mod stores;
 
-pub use engine::{PreloadEngine, Services, TickReport};
+pub use engine::{ControlEvent, PreloadEngine, ReloadBundle, Services, TickReport};
 pub use observation::{
     AdmissionDecision, AdmissionPolicy, CandidateExe, Completeness, DefaultAdmissionPolicy,
     DefaultModelUpdater, ModelDelta, ModelUpdater, Observation, ObservationEvent, ProcfsScanner,

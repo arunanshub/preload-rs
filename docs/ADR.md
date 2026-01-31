@@ -91,7 +91,7 @@ selects within a memory budget computed from MemStat and configuration.
 `PreloadEngine` owns stores and services. It exposes:
 
 - tick(): one scan/update/predict/plan/prefetch step, no sleeping
-- run_until(cancel_token): loop with scheduling and autosave
+- run_until(cancel_token, control_rx): loop with scheduling, autosave, and control events
 - save(): persist snapshot
 
 ### Persistence
