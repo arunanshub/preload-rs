@@ -13,7 +13,7 @@ license = "Apache-2.0"
 [workspace.dependencies]
 thiserror = "2.0.12"
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 proptest = "1.6.0"
 tokio = { version = "1.43.0", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = "0.7.13"

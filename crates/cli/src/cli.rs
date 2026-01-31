@@ -28,6 +28,10 @@ pub struct Cli {
     /// Disable prefetch I/O (observe/predict only).
     #[arg(long)]
     pub no_prefetch: bool,
+
+    /// Increase verbosity (-v, -vv, -vvv).
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
 }
 
 impl Cli {

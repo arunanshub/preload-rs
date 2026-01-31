@@ -16,12 +16,12 @@ use orchestrator::{
 };
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt::init();
-
     let cli = Cli::parse();
+    init_tracing(cli.verbose);
     let config_paths = cli.resolve_config_paths()?;
     let mut config = if config_paths.is_empty() {
         warn!("no config files found; falling back to defaults");
@@ -77,4 +77,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     engine.run_until(cancel).await?;
     Ok(())
+}
+
+fn init_tracing(verbosity: u8) {
+    let default_level = match verbosity {
+        0 => "info",
+        1 => "debug",
+        _ => "trace",
+    };
+
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_level));
+
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
 }
