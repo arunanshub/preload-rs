@@ -47,7 +47,7 @@ impl PosixFadvisePrefetcher {
             length,
             PosixFadviseAdvice::POSIX_FADV_WILLNEED,
         )
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+        .map_err(std::io::Error::other)?;
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl Prefetcher for PosixFadvisePrefetcher {
             match join {
                 Ok(result) => (map_key, result),
                 Err(err) => {
-                    let err = std::io::Error::new(std::io::ErrorKind::Other, err);
+                    let err = std::io::Error::other(err);
                     (map_key, Err(err))
                 }
             }

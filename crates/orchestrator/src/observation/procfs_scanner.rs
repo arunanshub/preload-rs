@@ -82,8 +82,8 @@ impl Scanner for ProcfsScanner {
                             continue;
                         };
                         let (start, end) = map.address;
-                        let length = end.saturating_sub(start) as u64;
-                        let segment = MapSegment::new(path, map.offset as u64, length, time);
+                        let length = end.saturating_sub(start);
+                        let segment = MapSegment::new(path, map.offset, length, time);
                         events.push(ObservationEvent::MapSeen {
                             exe_path: exe_path.clone(),
                             map: segment,

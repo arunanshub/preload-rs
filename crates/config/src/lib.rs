@@ -17,22 +17,12 @@ pub use system::System;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
     pub model: Model,
     pub system: System,
     pub persistence: Persistence,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            model: Model::default(),
-            system: System::default(),
-            persistence: Persistence::default(),
-        }
-    }
 }
 
 impl Config {

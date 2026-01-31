@@ -46,22 +46,22 @@ impl Cli {
             return Ok(paths);
         }
 
-        if let Some(path) = system_config_path() {
-            if path.exists() {
-                paths.push(path);
-            }
+        if let Some(path) = system_config_path()
+            && path.exists()
+        {
+            paths.push(path);
         }
 
-        if let Some(dir) = system_config_dir() {
-            if dir.is_dir() {
-                paths.extend(collect_toml(&dir, false)?);
-            }
+        if let Some(dir) = system_config_dir()
+            && dir.is_dir()
+        {
+            paths.extend(collect_toml(&dir, false)?);
         }
 
-        if let Some(path) = user_config_path() {
-            if path.exists() {
-                paths.push(path);
-            }
+        if let Some(path) = user_config_path()
+            && path.exists()
+        {
+            paths.push(path);
         }
 
         let local = PathBuf::from("config.toml");

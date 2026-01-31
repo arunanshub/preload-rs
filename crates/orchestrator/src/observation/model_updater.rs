@@ -170,10 +170,10 @@ impl ModelUpdater for DefaultModelUpdater {
                     let b_running = stores.exes.get(b).map(|e| e.running).unwrap_or(false);
                     MarkovState::from_running(a_running, b_running)
                 };
-                if stores.ensure_markov_edge(a, b, now, state) {
-                    if let (Some(a_exe), Some(b_exe)) = (stores.exes.get(a), stores.exes.get(b)) {
-                        delta.new_edges.push((a_exe.key.clone(), b_exe.key.clone()));
-                    }
+                if stores.ensure_markov_edge(a, b, now, state)
+                    && let (Some(a_exe), Some(b_exe)) = (stores.exes.get(a), stores.exes.get(b))
+                {
+                    delta.new_edges.push((a_exe.key.clone(), b_exe.key.clone()));
                 }
             }
         }
@@ -183,11 +183,10 @@ impl ModelUpdater for DefaultModelUpdater {
         if period > 0 {
             let exe_ids: Vec<_> = stores.exes.iter().map(|(id, _)| id).collect();
             for exe_id in exe_ids {
-                if let Some(exe_mut) = stores.exes.get_mut(exe_id) {
-                    if exe_mut.running {
-                        exe_mut.total_running_time =
-                            exe_mut.total_running_time.saturating_add(period);
-                    }
+                if let Some(exe_mut) = stores.exes.get_mut(exe_id)
+                    && exe_mut.running
+                {
+                    exe_mut.total_running_time = exe_mut.total_running_time.saturating_add(period);
                 }
             }
             for (key, edge) in stores.markov.iter_mut() {

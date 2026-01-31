@@ -35,18 +35,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let repo = if cli.no_persist {
-        Box::new(NoopRepository::default()) as Box<dyn orchestrator::persistence::StateRepository>
+        Box::new(NoopRepository) as Box<dyn orchestrator::persistence::StateRepository>
     } else if let Some(path) = &config.persistence.state_path {
         let repo = SqliteRepository::new(path.clone()).await?;
         Box::new(repo) as Box<dyn orchestrator::persistence::StateRepository>
     } else {
         warn!("no persistence path provided; using in-memory state only");
-        Box::new(NoopRepository::default()) as Box<dyn orchestrator::persistence::StateRepository>
+        Box::new(NoopRepository) as Box<dyn orchestrator::persistence::StateRepository>
     };
 
     let prefetcher: Box<dyn orchestrator::prefetch::Prefetcher> =
         if cli.no_prefetch || config.system.prefetch_concurrency == 0 {
-            Box::new(NoopPrefetcher::default())
+            Box::new(NoopPrefetcher)
         } else {
             Box::new(PosixFadvisePrefetcher::new(
                 config.system.prefetch_concurrency,
@@ -54,14 +54,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
     let services = Services {
-        scanner: Box::new(ProcfsScanner::default()),
+        scanner: Box::new(ProcfsScanner),
         admission: Box::new(DefaultAdmissionPolicy::new(&config)),
         updater: Box::new(DefaultModelUpdater::new(&config)),
         predictor: Box::new(MarkovPredictor::new(&config)),
         planner: Box::new(GreedyPrefetchPlanner::new(&config)),
         prefetcher,
         repo,
-        clock: Box::new(SystemClock::default()),
+        clock: Box::new(SystemClock),
     };
 
     let mut engine = PreloadEngine::load(config, services).await?;

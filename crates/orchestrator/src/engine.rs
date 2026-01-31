@@ -266,9 +266,11 @@ impl PreloadEngine {
     }
 
     fn stores_from_snapshot(snapshot: StoresSnapshot, active_window: u64) -> Result<Stores, Error> {
-        let mut stores = Stores::default();
-        stores.model_time = snapshot.state.model_time;
-        stores.last_accounting_time = snapshot.state.last_accounting_time;
+        let mut stores = Stores {
+            model_time: snapshot.state.model_time,
+            last_accounting_time: snapshot.state.last_accounting_time,
+            ..Default::default()
+        };
 
         for map in snapshot.state.maps {
             let segment = MapSegment::new(map.path, map.offset, map.length, map.update_time);
@@ -286,10 +288,10 @@ impl PreloadEngine {
 
         // Rebuild active set based on last_seen_time and window.
         for (exe_id, exe) in stores.exes.iter() {
-            if let Some(last_seen) = exe.last_seen_time {
-                if stores.model_time.saturating_sub(last_seen) <= active_window {
-                    stores.active.update([exe_id], stores.model_time);
-                }
+            if let Some(last_seen) = exe.last_seen_time
+                && stores.model_time.saturating_sub(last_seen) <= active_window
+            {
+                stores.active.update([exe_id], stores.model_time);
             }
         }
 
@@ -320,12 +322,12 @@ impl PreloadEngine {
                 .ok_or_else(|| Error::ExeMissing(exe_b_key.path().clone()))?;
             let state = MarkovState::Neither;
             let key = crate::stores::EdgeKey::new(a, b);
-            if stores.ensure_markov_edge(a, b, stores.model_time, state) {
-                if let Some(edge) = stores.markov.get_mut(key) {
-                    edge.time_to_leave = record.time_to_leave;
-                    edge.transition_prob = record.transition_prob;
-                    edge.both_running_time = record.both_running_time;
-                }
+            if stores.ensure_markov_edge(a, b, stores.model_time, state)
+                && let Some(edge) = stores.markov.get_mut(key)
+            {
+                edge.time_to_leave = record.time_to_leave;
+                edge.transition_prob = record.transition_prob;
+                edge.both_running_time = record.both_running_time;
             }
         }
 
