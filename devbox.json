@@ -1,6 +1,6 @@
 {
   "$schema":  "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
-  "packages": ["lefthook@2.1.0"],
+  "packages": ["lefthook@2.1.1"],
   "shell": {
     "init_hook": [
       "echo 'Welcome to devbox!' > /dev/null"
