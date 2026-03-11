@@ -20,13 +20,13 @@ so program startup feels faster. It is designed for Linux systems.
 2. Run preload-rs:
 
    ```bash
-   cargo run -p cli --
+   cargo run -p preload-rs --
    ```
 
 3. Increase verbosity if you want more logs:
 
    ```bash
-   cargo run -p cli -- -v
+   cargo run -p preload-rs -- -v
    ```
 
 ## Command-line flags (succinct)
@@ -113,19 +113,19 @@ Example: `memfree = 50` means the planner can use 50% of currently free memory.
 - **Observe only (no I/O):**
 
   ```bash
-  cargo run -p cli -- --no-prefetch
+  cargo run -p preload-rs -- --no-prefetch
   ```
 
 - **Disable persistence:**
 
   ```bash
-  cargo run -p cli -- --no-persist
+  cargo run -p preload-rs -- --no-persist
   ```
 
 - **Run once (one tick):**
 
   ```bash
-  cargo run -p cli -- --once
+  cargo run -p preload-rs -- --once
   ```
 
 ## Operational notes and safety

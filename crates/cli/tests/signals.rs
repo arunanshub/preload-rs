@@ -18,7 +18,16 @@ mod unix {
         let config_path = dir.path().join("config.toml");
         write_config(&config_path, 1)?;
 
-        let child = Command::new(env!("CARGO_BIN_EXE_cli"))
+        let exe = option_env!("CARGO_BIN_EXE_preload-rs")
+            .or(option_env!("CARGO_BIN_EXE_preload_rs"))
+            .map(str::to_owned)
+            .or_else(|| std::env::var("CARGO_BIN_EXE_preload-rs").ok())
+            .or_else(|| std::env::var("CARGO_BIN_EXE_preload_rs").ok())
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::NotFound, "preload-rs binary path not set")
+            })?;
+
+        let child = Command::new(exe)
             .arg("--config")
             .arg(&config_path)
             .arg("--no-persist")
