@@ -15,6 +15,7 @@ env:
   # prevents out of disk space error
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
+  PROPTEST_CASES: 10000
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

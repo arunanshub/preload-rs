@@ -219,6 +219,7 @@ impl SqliteRepository {
             meta.app_version = row.app_version;
             meta.created_at = row
                 .created_at
+                .as_deref()
                 .and_then(|s| s.parse::<u64>().ok())
                 .map(|secs| SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(secs));
             state.model_time = row.model_time as u64;
