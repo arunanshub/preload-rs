@@ -44,7 +44,7 @@ jobs:
           echo '<meta http-equiv="refresh" content="0; url=orchestrator/index.html" />' > target/doc/index.html
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: target/doc
 
