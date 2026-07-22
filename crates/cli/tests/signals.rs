@@ -78,7 +78,7 @@ save_on_shutdown = true\n"
     fn wait_for_output(mut child: Child) -> io::Result<Output> {
         let start = Instant::now();
         loop {
-            if let Some(_) = child.try_wait()? {
+            if child.try_wait()?.is_some() {
                 break;
             }
             if start.elapsed() > Duration::from_secs(10) {
