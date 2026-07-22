@@ -45,7 +45,11 @@ impl MarkovPredictor {
         let numerator = (t as f32 * ab_time as f32) - (a_time as f32 * b_time as f32);
         let denom =
             (a_time as f32 * b_time as f32 * (t - a_time) as f32 * (t - b_time) as f32).sqrt();
-        if denom == 0.0 { 0.0 } else { numerator / denom }
+        if denom == 0.0 {
+            return 0.0;
+        }
+        let corr = numerator / denom;
+        if corr.is_finite() { corr } else { 0.0 }
     }
 
     fn p_needed(
@@ -56,7 +60,9 @@ impl MarkovPredictor {
     ) -> f32 {
         let state_ix = state.index();
         let tt = edge.time_to_leave[state_ix];
-        if tt <= 0.0 {
+        // `tt <= 0.0` alone would let NaN (e.g. from corrupt persisted state)
+        // slip through and poison every downstream score.
+        if !tt.is_finite() || tt <= 0.0 {
             return 0.0;
         }
         let p_state_change = 1.0 - (-cycle / tt).exp();
@@ -64,7 +70,8 @@ impl MarkovPredictor {
         let both_ix = MarkovState::Both.index();
         let p_runs_next =
             edge.transition_prob[state_ix][target_ix] + edge.transition_prob[state_ix][both_ix];
-        (p_state_change * p_runs_next).clamp(0.0, 1.0)
+        let p = (p_state_change * p_runs_next).clamp(0.0, 1.0);
+        if p.is_nan() { 0.0 } else { p }
     }
 }
 
@@ -220,11 +227,13 @@ mod tests {
     }
 
     fn edge_strategy() -> impl Strategy<Value = (u8, u8, [f32; 4], [[f32; 4]; 4], u64)> {
+        // Full f32 range (including NaN and infinities) models corrupt or
+        // legacy persisted state; scores must stay finite regardless.
         (
             0u8..16,
             0u8..16,
-            prop::array::uniform4(0f32..100f32),
-            prop::array::uniform4(prop::array::uniform4(0f32..1f32)),
+            prop::array::uniform4(prop::num::f32::ANY),
+            prop::array::uniform4(prop::array::uniform4(prop::num::f32::ANY)),
             0u64..10_000,
         )
     }

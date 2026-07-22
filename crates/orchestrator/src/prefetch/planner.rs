@@ -5,7 +5,6 @@ use crate::prediction::Prediction;
 use crate::prefetch::PrefetchPlan;
 use crate::stores::Stores;
 use config::{Config, SortStrategy};
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs;
 use std::os::linux::fs::MetadataExt;
@@ -83,7 +82,7 @@ impl PrefetchPlanner for GreedyPrefetchPlanner {
             .iter()
             .map(|(id, score)| (*id, *score))
             .collect();
-        items.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+        items.sort_by(|a, b| b.1.total_cmp(&a.1));
 
         let mut budget_kb = self.available_kb(memstat);
         let mut selected = Vec::new();
@@ -205,21 +204,16 @@ enum SortKey {
 }
 
 fn sort_by_score_and_key<K: Ord>(items: &mut [SelectedWithKey<K>]) {
+    // The comparator must be a strict total order: mixing key-based and
+    // index-based tie-breaks per pair is not transitive and makes the sort
+    // panic when some maps lack a sort key (e.g. their file vanished).
+    // Keyless maps (None) group before keyed ones within a score tier.
     items.sort_by(|a, b| {
-        let score_cmp = b
-            .item
+        b.item
             .score
-            .partial_cmp(&a.item.score)
-            .unwrap_or(Ordering::Equal);
-        if score_cmp != Ordering::Equal {
-            return score_cmp;
-        }
-        match (&a.key, &b.key) {
-            (Some(a_key), Some(b_key)) => a_key
-                .cmp(b_key)
-                .then_with(|| a.item.index.cmp(&b.item.index)),
-            _ => a.item.index.cmp(&b.item.index),
-        }
+            .total_cmp(&a.item.score)
+            .then_with(|| a.key.cmp(&b.key))
+            .then_with(|| a.item.index.cmp(&b.item.index))
     });
 }
 
