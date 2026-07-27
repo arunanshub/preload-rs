@@ -2,8 +2,8 @@
   "lockfile_version": "1",
   "packages": {
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-05-29T05:01:12Z",
-      "resolved": "github:NixOS/nixpkgs/e9a7635a57597d9754eccebdfc7045e6c8600e6b?lastModified=1780030872&narHash=sha256-u6WU%2Fyd%2Fo8iYQrHX3RAwO1hYa3LkoSL%2BWNQD0rJfJZQ%3D"
+      "last_modified": "2026-07-26T16:08:32Z",
+      "resolved": "github:NixOS/nixpkgs/e318e6adc497b5e8a5ac433c6c6ed21ecdab9029?lastModified=1785082112&narHash=sha256-Y7z%2FnrPajIJyVDd9z53ZPZGm0HU%2Bkej16Pwt2cNYI0A%3D"
     },
     "lefthook@2.1.10": {
       "last_modified": "2026-07-23T05:10:05Z",
