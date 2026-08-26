@@ -2,12 +2,12 @@
   "lockfile_version": "1",
   "packages": {
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
-      "last_modified": "2026-08-10T07:49:06Z",
-      "resolved": "github:NixOS/nixpkgs/d482ef84049d9b7276b83a06e4e4d76983830097?lastModified=1786348146&narHash=sha256-we5zDEFfn8TgzeWKjKDMIjeQZ59omEPl23NIF%2B13%2Fys%3D"
+      "last_modified": "2026-08-25T04:16:28Z",
+      "resolved": "github:NixOS/nixpkgs/ac6b2166e7a9375683b8e98f860f273222337b16?lastModified=1787631388&narHash=sha256-vMiXptXarfSdJb1Gkc%2BFYVOAibuBRj7qxGa8z68q1Uw%3D"
     },
     "lefthook@2.1.10": {
-      "last_modified": "2026-08-01T16:34:20Z",
-      "resolved": "github:NixOS/nixpkgs/a5cbcfe954791221bfffe2307f7d1a1bf61a871e#lefthook",
+      "last_modified": "2026-08-12T11:28:58Z",
+      "resolved": "github:NixOS/nixpkgs/044bfe75bfe4c7bbe043dc17b5e42ea823b84a09#lefthook",
       "source": "devbox-search",
       "version": "2.1.10",
       "systems": {
@@ -15,31 +15,31 @@
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/wj8k8cws8h9r9ysvmr1w60aniaal8c0y-lefthook-2.1.10",
+              "path": "/nix/store/qbrq4nvlrd7k78iadpph7pwa4ra0z0sl-lefthook-2.1.10",
               "default": true
             }
           ],
-          "store_path": "/nix/store/wj8k8cws8h9r9ysvmr1w60aniaal8c0y-lefthook-2.1.10"
+          "store_path": "/nix/store/qbrq4nvlrd7k78iadpph7pwa4ra0z0sl-lefthook-2.1.10"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/bi1y28x37nrpdjddkipnaghmnpxarhwg-lefthook-2.1.10",
+              "path": "/nix/store/wd9rvnrd5i46ia4v42wh8kfnnfd3v9lr-lefthook-2.1.10",
               "default": true
             }
           ],
-          "store_path": "/nix/store/bi1y28x37nrpdjddkipnaghmnpxarhwg-lefthook-2.1.10"
+          "store_path": "/nix/store/wd9rvnrd5i46ia4v42wh8kfnnfd3v9lr-lefthook-2.1.10"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/hc7prw1l4xqipvw4a4gr4p65h50skdpy-lefthook-2.1.10",
+              "path": "/nix/store/w3kgp8s9wm3b3yg484hvb318mdnznxvl-lefthook-2.1.10",
               "default": true
             }
           ],
-          "store_path": "/nix/store/hc7prw1l4xqipvw4a4gr4p65h50skdpy-lefthook-2.1.10"
+          "store_path": "/nix/store/w3kgp8s9wm3b3yg484hvb318mdnznxvl-lefthook-2.1.10"
         }
       }
     }
