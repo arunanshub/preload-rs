@@ -36,11 +36,12 @@ libc = "0.2.180"
 lto = true
 codegen-units = 1
 strip = true
+opt-level = "s"
 # https://smallcultfollowing.com/babysteps/blog/2024/05/02/unwind-considered-harmful/
 panic = "abort"
 
 [profile.test.package.proptest]
-opt-level = 3
+opt-level = 2
 
 [workspace.lints.clippy]
 print_stderr = "warn"
