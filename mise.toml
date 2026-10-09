@@ -1,0 +1,5 @@
+[tools]
+"aqua:nextest-rs/nextest/cargo-nextest" = "latest"
+
+[settings]
+lockfile = true
