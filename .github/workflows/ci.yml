@@ -9,6 +9,10 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+  actions: read
+
 env:
   # for now don't make the build fail on warnings
   # RUSTFLAGS: "-D warnings"
