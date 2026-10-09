@@ -1,0 +1,39 @@
+version: 2
+
+project_name: preload-rs
+dist: release
+
+builds:
+  - id: preload-rs
+    builder: rust
+    tool: cross
+    command: build
+    binary: preload-rs
+    targets:
+      - x86_64-unknown-linux-gnu
+      - x86_64-unknown-linux-musl
+    flags:
+      - --release
+      - --locked
+      - --package=preload-rs
+      - --bin=preload-rs
+    env:
+      - SQLX_OFFLINE=true
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Target }}"
+    files:
+      - LICENSE
+      - README.md
+      - GUIDE.md
+      - RELEASE.md
+      - docs/config.example.toml
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+# The isolated publish job uploads these exact outputs after attestation.
+release:
+  disable: true

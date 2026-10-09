@@ -45,6 +45,9 @@ Please see [CONTRIBUTING](./CONTRIBUTING.md).
 
 Please see [GUIDE](./GUIDE.md)
 
+Download Linux binaries from [GitHub Releases](https://github.com/arunanshub/preload-rs/releases).
+See [RELEASE](./RELEASE.md) for target selection and provenance verification.
+
 ## How to develop/extend
 
 Please see [DEVELOPING](./DEVELOPING.md)
