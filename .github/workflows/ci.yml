@@ -40,8 +40,12 @@ jobs:
         with:
           components: clippy
 
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+      - name: Setup kache
+        uses: kunobi-ninja/kache-action@v1
+        with:
+          version: v2.1.1
+          cache-executables: "true"
+          pr-comment: "false"
 
       - name: Install cargo-llvm-cov and nextest
         uses: taiki-e/install-action@v2
