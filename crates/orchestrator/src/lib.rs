@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+// cache-eval: simulated workspace change (eval PR only, not for merge)
 
 pub mod clock;
 pub mod domain;
